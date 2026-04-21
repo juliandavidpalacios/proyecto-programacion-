@@ -1,45 +1,42 @@
-import tkinter as tk  # Importamos la librería estándar para interfaces gráficas
-from tkinter import messagebox  # Importamos el módulo para mostrar alertas o mensajes
+import tkinter as tk
 
 
-# Definimos la clase de la Vista que hereda de tk.Tk
 class FinanceView(tk.Tk):
     def __init__(self):
-        super().__init__()  # Inicializamos la clase padre tk.Tk
+        super().__init__()
 
-        # Configuración básica de la ventana
-        self.title("Tracker Financiero - Personal")  # Título de la aplicación
-        self.geometry("900x500")  # Tamaño de la ventana (ancho x alto)
-        self.configure(bg="#f0f0f0")  # Color de fondo gris claro
+        self.title("Tracker Financiero - Personal")
+        self.geometry("900x500")
+        self.configure(bg="#121212")  # Gris oscuro de fondo principal
 
-        # Atributo para guardar la referencia al Presenter
         self.presenter = None
 
-        # --- ESTRUCTURA DE LA PANTALLA ---
+        # --- ESTRUCTURA ---
 
-        # 1. Menú Lateral (Panel Izquierdo)
-        self.menu_lateral = tk.Frame(self, bg="#2c3e50", width=200, height=500)
-        self.menu_lateral.pack(side="left", fill="y")  # Se fija a la izquierda y ocupa todo el alto
-        self.menu_lateral.pack_propagate(False)  # Evita que el frame cambie de tamaño según los botones
+        # Guardamos el color actual en una variable para poder actualizar los botones después
+        self.color_menu_actual = "#2D033B"  # Morado inicial
 
-        # 2. Contenedor Principal (Panel Derecho)
-        # Aquí se "dibujarán" las pantallas al presionar los botones
-        self.contenedor_principal = tk.Frame(self, bg="white")
+        # 1. Menú Lateral
+        self.menu_lateral = tk.Frame(self, bg=self.color_menu_actual, width=200, height=500)
+        self.menu_lateral.pack(side="left", fill="y")
+        self.menu_lateral.pack_propagate(False)
+
+        # 2. Contenedor Principal
+        self.contenedor_principal = tk.Frame(self, bg="#121212")
         self.contenedor_principal.pack(side="right", expand=True, fill="both")
 
-        # Texto de encabezado en el menú
-        tk.Label(self.menu_lateral, text="MENÚ", font=("Arial", 14, "bold"),
-                 bg="#2c3e50", fg="white", pady=20).pack()
+        # Etiqueta de Menú
+        self.lbl_menu_titulo = tk.Label(self.menu_lateral, text="MENÚ", font=("Arial", 14, "bold"),
+                                        bg=self.color_menu_actual, fg="#FFFFFF", pady=20)
+        self.lbl_menu_titulo.pack()
 
-        # Llamamos a la función que crea los 5 botones
+        # Lista para guardar las referencias de los botones y poder cambiarles el color
+        self.botones_del_menu = []
         self.crear_botones_menu()
 
-        # Mostrar la pantalla "Home" por defecto al abrir el programa
         self.cambiar_pantalla("Home")
 
     def crear_botones_menu(self):
-        """Crea los botones con los nuevos nombres solicitados"""
-        # Lista de tuplas: (Nombre visual, Función a ejecutar)
         opciones = [
             ("Home", self.btn_home_click),
             ("Ahorros", self.btn_ahorros_click),
@@ -48,65 +45,81 @@ class FinanceView(tk.Tk):
             ("Cuenta", self.btn_cuenta_click)
         ]
 
-        # Ciclo para crear cada botón con el mismo estilo
         for texto, comando in opciones:
             btn = tk.Button(self.menu_lateral, text=texto, font=("Arial", 11),
-                            bg="#34495e", fg="white", bd=0, padx=10, pady=15,
-                            cursor="hand2", activebackground="#1abc9c",
+                            bg="#482673", fg="#FFFFFF", bd=0, padx=10, pady=15,
+                            cursor="hand2", activebackground="#810CA8",
                             command=comando)
-            btn.pack(fill="x", pady=2)  # fill="x" hace que el botón ocupe todo el ancho del menú
+            btn.pack(fill="x", pady=2)
+            self.botones_del_menu.append(btn)  # Guardamos el botón en la lista
 
-    # --- MÉTODOS DE EVENTO (Interacción con el usuario) ---
+    # --- MÉTODOS DE CAMBIO DE COLOR ---
 
-    def btn_home_click(self):
-        self.cambiar_pantalla("Home")  # Cambia la vista a Home
-        if self.presenter:
-            self.presenter.al_seleccionar_home()  # Notifica al presentador
+    def actualizar_colores_interfaz(self, color_fondo, color_boton):
+        """Cambia el color del menú y todos sus componentes"""
+        self.color_menu_actual = color_fondo
+        self.menu_lateral.configure(bg=color_fondo)
+        self.lbl_menu_titulo.configure(bg=color_fondo)
 
-    def btn_ahorros_click(self):
-        self.cambiar_pantalla("Ahorros")  # Cambia la vista a Ahorros
-        if self.presenter:
-            self.presenter.al_seleccionar_ahorros()
+        # Actualizamos cada botón del menú lateral
+        for btn in self.botones_del_menu:
+            btn.configure(bg=color_boton)
 
-    def btn_categorias_click(self):
-        self.cambiar_pantalla("Categorías")  # Cambia la vista a Categorías
-        if self.presenter:
-            self.presenter.al_seleccionar_categorias()
-
-    def btn_acciones_click(self):
-        self.cambiar_pantalla("Acciones")  # Cambia la vista a Acciones
-        if self.presenter:
-            self.presenter.al_seleccionar_acciones()
+    # --- NAVEGACIÓN ---
 
     def btn_cuenta_click(self):
-        self.cambiar_pantalla("Cuenta")  # Cambia la vista a Cuenta
-        if self.presenter:
-            self.presenter.al_seleccionar_cuenta()
+        self.cambiar_pantalla("Cuenta")
 
-    # --- LÓGICA DE INTERFAZ ---
+    def btn_home_click(self):
+        self.cambiar_pantalla("Home")
+
+    def btn_ahorros_click(self):
+        self.cambiar_pantalla("Ahorros")
+
+    def btn_categorias_click(self):
+        self.cambiar_pantalla("Categorías")
+
+    def btn_acciones_click(self):
+        self.cambiar_pantalla("Acciones")
 
     def limpiar_contenedor(self):
-        """Elimina los elementos de la pantalla anterior para dejar el espacio en blanco"""
         for widget in self.contenedor_principal.winfo_children():
             widget.destroy()
 
     def cambiar_pantalla(self, titulo_pantalla):
-        """Actualiza el panel derecho con el título de la opción seleccionada"""
-        self.limpiar_contenedor()  # Borra lo que había antes
+        self.limpiar_contenedor()
 
-        # Crea el título principal en el panel derecho
         lbl_titulo = tk.Label(self.contenedor_principal, text=titulo_pantalla,
-                              font=("Arial", 20, "bold"), bg="white", fg="#2c3e50")
-        lbl_titulo.pack(pady=20)
+                              font=("Arial", 24, "bold"), bg="#121212", fg="#FFFFFF")
+        lbl_titulo.pack(pady=30)
 
-        # Texto informativo de relleno
-        lbl_info = tk.Label(self.contenedor_principal,
-                            text=f"Bienvenido a la sección: {titulo_pantalla}",
-                            bg="white", font=("Arial", 12))
-        lbl_info.pack(pady=10)
+        # SI LA PANTALLA ES "CUENTA", CREAMOS LOS BOTONES DE COLORES
+        if titulo_pantalla == "Cuenta":
+            lbl_instruccion = tk.Label(self.contenedor_principal, text="Selecciona un color para el menú:",
+                                       bg="#121212", fg="#A0A0A0", font=("Arial", 12))
+            lbl_instruccion.pack(pady=10)
+
+            # Definimos los colores (Fondo del menú, Color del botón)
+            colores = [
+                ("Morado", "#2D033B", "#482673"),
+                ("Azul", "#0D47A1", "#1976D2"),
+                ("Naranja Oscuro", "#E65100", "#F57C00"),
+                ("Amarillo Oscuro", "#F57F17", "#FBC02D"),
+                ("Verde Selva", "#1B5E20", "#2E7D32")
+            ]
+
+            # Creamos un botón en el área principal por cada color
+            for nombre, color_f, color_b in colores:
+                btn_color = tk.Button(self.contenedor_principal, text=nombre, bg=color_f, fg="white",
+                                      width=20, pady=10, font=("Arial", 10, "bold"),
+                                      command=lambda f=color_f, b=color_b: self.actualizar_colores_interfaz(f, b))
+                btn_color.pack(pady=5)
+        else:
+            lbl_info = tk.Label(self.contenedor_principal, text=f"Sección: {titulo_pantalla}",
+                                bg="#121212", fg="#A0A0A0", font=("Arial", 12))
+            lbl_info.pack(pady=10)
 
 
-# Ejecución de prueba
 if __name__ == "__main__":
     app = FinanceView()
     app.mainloop()
