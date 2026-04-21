@@ -1,0 +1,45 @@
+// Caja Blanca BioCampus
+digraph {
+	fontname=Arial rankdir=LR size="12,8"
+	node [fontname=Arial fontsize=10]
+	In_Res [label="Residuos Orgánicos
+(Cafeterías)" fillcolor="#f9f9f9" shape=parallelogram style=filled]
+	In_Die [label="Energía: Diésel" fillcolor="#fff4e6" shape=parallelogram style=filled]
+	In_Ele [label="Energía: Eléctrica" fillcolor="#fff4e6" shape=parallelogram style=filled]
+	subgraph cluster_biocampus {
+		color=grey fontcolor=blue label="LÍMITE DEL SISTEMA BIOCAMPUS" style=dashed
+		node [fillcolor="#e1f5fe" shape=box style=filled]
+		Log [label="Logística y
+Recogida"]
+		Pre [label="Pre-tratamiento
+(Mezcla y Pesaje)"]
+		Comp [label="Compostaje Activo
+(Reactores/Pilas)"]
+		Ctrl [label="Sistema de Control
+(Sensores Hº y Tª)" fillcolor="#fff9c4" shape=component]
+		Mad [label="Maduración y
+Cribado"]
+		Emp [label="Proceso de
+Empaquetado"]
+	}
+	Out_Com [label="PRODUCTO FINAL:
+Compost en Sacos" fillcolor="#c8e6c9" shape=doubleoctagon style=filled]
+	Out_Gas [label="Emisiones
+(CO2 y Vapor)" fontcolor=grey shape=plaintext]
+	Out_Rec [label="Rechazos
+(No compostables)" fontcolor=red shape=plaintext]
+	In_Res -> Log
+	In_Die -> Log [label="Consumo camiones"]
+	In_Ele -> Pre
+	In_Ele -> Comp
+	In_Ele -> Emp
+	Log -> Pre [label="Materia prima"]
+	Pre -> Comp [label="Mezcla óptima"]
+	Comp -> Ctrl [label="Datos Hº/Tª" color=orange style=dotted]
+	Ctrl -> Comp [label="Actuación (Riego/Aire)" color=orange]
+	Comp -> Mad [label="Materia estabilizada"]
+	Mad -> Emp [label="Compost fino"]
+	Emp -> Out_Com
+	Comp -> Out_Gas
+	Mad -> Out_Rec
+}
