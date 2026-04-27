@@ -4,7 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="1e95ed71-d102-4a12-b992-967013cd4999" name="Changes" comment="g" />
+    <list default="true" id="1e95ed71-d102-4a12-b992-967013cd4999" name="Changes" comment="g">
+      <change afterPath="$PROJECT_DIR$/Model.py" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -20,7 +22,7 @@
   <component name="Git.Settings">
     <option name="RECENT_BRANCH_BY_REPOSITORY">
       <map>
-        <entry key="$PROJECT_DIR$" value="feature/Pantalla_1_Home" />
+        <entry key="$PROJECT_DIR$" value="feature/View" />
       </map>
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -60,7 +62,6 @@
     "RunOnceActivity.git.unshallow": "true",
     "RunOnceActivity.typescript.service.memoryLimit.init": "true",
     "ai.playground.ignore.import.keys.banner.in.settings": "true",
-    "git-widget-placeholder": "feature/Presenter",
     "ignore.virus.scanning.warn.message": "true",
     "last_opened_file_path": "C:/Users/julia/PycharmProjects/proyecto-programacion-",
     "node.js.detected.package.eslint": "true",
