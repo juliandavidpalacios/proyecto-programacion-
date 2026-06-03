@@ -1,0 +1,102 @@
+@startuml
+' Ajustes visuales opcionales para que se vea más limpio
+skinparam classAttributeIconSize 0
+skinparam monochrome true
+
+' --- ENUMERACIONES ---
+enum TipoTransaccion {
+    COMPRA
+    VENTA
+    DEPOSITO
+    RETIRO
+}
+
+enum IntervaloTiempo {
+    UN_DIA
+    UNA_SEMANA
+    UN_MES
+    UN_ANIO
+    CINCO_ANIOS
+}
+
+' --- CLASES PRINCIPALES ---
+class Usuario {
+    - idUsuario: String
+    - nombre: String
+    - correo: String
+    - contrasena: String
+    + iniciarSesion()
+    + cerrarSesion()
+}
+
+class CuentaBancaria {
+    - saldoDisponible: Float
+    - saldoAhorros: Float
+    + depositar(monto: Float)
+    + retirar(monto: Float)
+    + transferirAAhorros(monto: Float)
+    + transferirADisponible(monto: Float)
+}
+
+class Portafolio {
+    - posiciones: List<Posicion>
+    + comprarAccion(simbolo: String, cantidad: Int)
+    + venderAccion(simbolo: String, cantidad: Int)
+    + obtenerValorTotal(): Float
+    + obtenerRendimientoTotal(): Float
+}
+
+class Posicion {
+    - cantidad: Int
+    - precioCompraPromedio: Float
+    + agregarCantidad(cantidad: Int, precio: Float)
+    + reducirCantidad(cantidad: Int)
+    + calcularValorActual(): Float
+    + calcularGananciaOPerdida(): Float
+}
+
+class Transaccion {
+    - idTransaccion: String
+    - fechaHora: DateTime
+    - tipo: TipoTransaccion
+    - montoTotal: Float
+    - simboloAccion: String
+    - cantidadAcciones: Int
+    + generarRecibo()
+}
+
+' --- CLASES FINANCIERAS ---
+class Accion {
+    - simbolo: String
+    - nombreEmpresa: String
+    - precioActual: Float
+    - historial: Map<IntervaloTiempo, List<CotizacionHistorica>>
+    + actualizarPrecio(nuevoPrecio: Float)
+    + guardarHistorial(intervalo: IntervaloTiempo, cotizaciones: List)
+    + tieneHistorialGuardado(intervalo: IntervaloTiempo): Boolean
+}
+
+class CotizacionHistorica {
+    - fechaHora: DateTime
+    - precioCierre: Float
+}
+
+' --- INTERFAZ / SERVICIO ---
+interface ProveedorAPI {
+    + obtenerPrecioActual: Float
+    + obtenerSerieDeTiempo: List<CotizacionHistorica>
+}
+
+' --- RELACIONES ---
+Usuario "1" *-- "1" CuentaBancaria : tiene >
+Usuario "1" *-- "1" Portafolio : tiene >
+Usuario "1" *-- "*" Transaccion : realiza >
+
+Portafolio "1" o-- "*" Posicion : contiene >
+Portafolio ..> ProveedorAPI : usa >
+
+Posicion "*" --> "1" Accion : hace referencia a >
+
+Accion "1" *-- "*" CotizacionHistorica : mantiene >
+
+@enduml
