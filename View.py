@@ -1,10 +1,10 @@
 import tkinter as tk
+import os
 from screens.home import HomeFrame
 from screens.ahorros import AhorrosFrame
 from screens.acciones import AccionesFrame
 from screens.cuenta import CuentaFrame
 from screens.login import LoginFrame 
-# 1. Importamos la nueva pantalla
 from screens.registro import RegistroFrame 
 
 class FinanceView(tk.Tk):
@@ -13,6 +13,8 @@ class FinanceView(tk.Tk):
         self.title("Tracker Financiero Modular - Banco Digital")
         self.geometry("900x500")
         self.configure(bg="#121212")
+
+        self.usuario_logueado = None  # Guardará la ruta del archivo .txt del usuario actual
 
         self.color_menu = "#2D033B"
         self.color_btn = "#482673"
@@ -41,11 +43,28 @@ class FinanceView(tk.Tk):
         for widget in self.contenedor_auth.winfo_children():
             widget.destroy()
 
-    def login_exitoso(self):
-        # Destruimos el contenedor de autenticación completo
-        self.contenedor_auth.destroy()
+    def login_exitoso(self, ruta_archivo_usuario):
+        self.usuario_logueado = ruta_archivo_usuario
+        
+        # 🎨 NUEVO: Cargar los colores personalizados guardados en el archivo .txt del usuario
+        self.color_menu = "#2D033B"  # Tema por defecto si no encuentra nada
+        self.color_btn = "#482673"   # Tema por defecto si no encuentra nada
+        
+        if os.path.exists(ruta_archivo_usuario):
+            try:
+                with open(ruta_archivo_usuario, "r", encoding="utf-8") as f:
+                    lineas = f.readlines()
+                for linea in lineas:
+                    if linea.startswith("Color Fondo Menu:"):
+                        self.color_menu = linea.split(":")[1].strip()
+                    elif linea.startswith("Color Boton Menu:"):
+                        self.color_btn = linea.split(":")[1].strip()
+            except Exception as e:
+                print(f"Error al cargar el tema del usuario: {e}")
 
-        # Construimos el entorno principal (Menú + Contenedor de Apps)
+        self.contenedor_auth.pack_forget()
+
+        # El menú lateral ahora se creará automáticamente con los colores recuperados
         self.menu_lateral = tk.Frame(self, bg=self.color_menu, width=200, height=500)
         self.menu_lateral.pack(side="left", fill="y")
         self.menu_lateral.pack_propagate(False)
@@ -63,8 +82,6 @@ class FinanceView(tk.Tk):
 
         self.mostrar_frame("Home")
 
-    # ... (el resto de tus funciones mostrar_frame y crear_menu_botones siguen igual)
-
     def crear_menu_botones(self):
         opciones = ["Home", "Ahorros", "Acciones", "Cuenta"]
         self.botones_lista = []
@@ -78,15 +95,57 @@ class FinanceView(tk.Tk):
     def mostrar_frame(self, nombre):
         frame = self.frames[nombre]
         frame.tkraise()
+        # SI ENTRA A LA PANTALLA DE CUENTA, RECARGAMOS SUS DATOS
+        if hasattr(frame, "cargar_datos_usuario"):
+            frame.cargar_datos_usuario()
 
     def cambiar_color_global(self, fondo, boton):
-        # Validamos que el menú exista antes de cambiar el color por si acaso
+        self.color_menu = fondo
+        self.color_btn = boton
+
         if hasattr(self, 'menu_lateral'):
-            self.menu_lateral.configure(bg=fondo)
+            self.menu_lateral.config(bg=fondo)
+
         if hasattr(self, 'botones_lista'):
             for btn in self.botones_lista:
-                btn.configure(bg=boton)
-
+                btn.config(bg=boton)
+                
+        # 💾 NUEVO: Guardar la nueva elección de color en el archivo .txt inmediatamente
+        if self.usuario_logueado and os.path.exists(self.usuario_logueado):
+            try:
+                with open(self.usuario_logueado, "r", encoding="utf-8") as f:
+                    lineas = f.readlines()
+                
+                nuevas_lineas = []
+                tiene_fondo = False
+                tiene_boton = False
+                
+                # Buscamos si ya existen las líneas de color para modificarlas
+                for linea in lineas:
+                    if linea.startswith("Color Fondo Menu:"):
+                        nuevas_lineas.append(f"Color Fondo Menu:     {fondo}\n")
+                        tiene_fondo = True
+                    elif linea.startswith("Color Boton Menu:"):
+                        nuevas_lineas.append(f"Color Boton Menu:     {boton}\n")
+                        tiene_boton = True
+                    else:
+                        nuevas_lineas.append(linea)
+                
+                # Si es un archivo viejo o nuevo que no tenía estas líneas, las inyectamos ordenadamente
+                if not tiene_fondo or not tiene_boton:
+                    if nuevas_lineas and nuevas_lineas[-1].startswith("===="):
+                        linea_final = nuevas_lineas.pop()
+                        if not tiene_fondo: nuevas_lineas.append(f"Color Fondo Menu:     {fondo}\n")
+                        if not tiene_boton: nuevas_lineas.append(f"Color Boton Menu:     {boton}\n")
+                        nuevas_lineas.append(linea_final)
+                    else:
+                        if not tiene_fondo: nuevas_lineas.append(f"Color Fondo Menu:     {fondo}\n")
+                        if not tiene_boton: nuevas_lineas.append(f"Color Boton Menu:     {boton}\n")
+                        
+                with open(self.usuario_logueado, "w", encoding="utf-8") as f:
+                    f.writelines(nuevas_lineas)
+            except Exception as e:
+                print(f"Error al guardar preferencia de color: {e}")
 if __name__ == "__main__":
     app = FinanceView()
     app.mainloop()
