@@ -6,6 +6,7 @@ from screens.acciones import AccionesFrame
 from screens.cuenta import CuentaFrame
 from screens.login import LoginFrame 
 from screens.registro import RegistroFrame 
+from screens.invertir import InvertirFrame
 
 class FinanceView(tk.Tk):
     def __init__(self):
@@ -74,7 +75,8 @@ class FinanceView(tk.Tk):
 
         self.crear_menu_botones()
 
-        for F in (HomeFrame, AhorrosFrame, AccionesFrame, CuentaFrame):
+        # ✅ InvertirFrame TIENE que estar en esta lista entre los paréntesis:
+        for F in (HomeFrame, AhorrosFrame, AccionesFrame, InvertirFrame, CuentaFrame): 
             frame_name = F.__name__.replace("Frame", "")
             frame = F(parent=self.contenedor_principal, controller=self)
             self.frames[frame_name] = frame

@@ -1,172 +1,230 @@
 import tkinter as tk
-from tkinter import ttk
-import requests
+from tkinter import ttk, messagebox
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from datetime import datetime
 import matplotlib.dates as mdates
+from datetime import datetime, timedelta
+import random
+import os
 
-# Heredamos de tk.Frame para que View.py lo pueda meter en su cuadrícula (grid)
 class AccionesFrame(tk.Frame):
     def __init__(self, parent, controller):
-        # Inicializamos el Frame con el fondo oscuro de la app principal
         super().__init__(parent, bg="#121212")
         self.controller = controller
+        self.modo_porcentaje = True  # True = Muestra %, False = Muestra €
+        self.periodo_actual = "1M"   # Periodo por defecto
+        self.filtro_activo = "Todo"  # NUEVO: Filtro por defecto
 
-        # Creamos dos sub-contenedores internos para cambiar de vista sin salir de este Frame
-        self.vista_selector = tk.Frame(self, bg="#121212")
-        self.vista_grafico = tk.Frame(self, bg="#121212")
+        self.crear_interfaz()
 
-        # Por defecto, mostramos la pantalla de selección
-        self.vista_selector.pack(fill="both", expand=True)
-        self.crear_vista_selector()
+    def crear_interfaz(self):
+        # --- HEADER PRINCIPAL ---
+        frame_header = tk.Frame(self, bg="#121212")
+        frame_header.pack(fill="x", padx=25, pady=(15, 5))
 
-    def crear_vista_selector(self):
-        """Diseña la interfaz de selección (Buscador/Dropdown)"""
-        frame_centro = tk.Frame(self.vista_selector, bg="#121212")
-        frame_centro.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+        tk.Label(frame_header, text="📈 PORTAFOLIO DE INVERSIONES", font=("Arial", 18, "bold"),
+                 bg="#121212", fg="white").pack(side="left")
 
-        tk.Label(frame_centro, text="📊 Selecciona una Moneda", font=("Arial", 16, "bold"), fg="white", bg="#121212").pack(pady=20)
+        tk.Button(frame_header, text="➕ Nueva Inversión", font=("Arial", 10, "bold"),
+                  bg="#2ecc71", fg="black", bd=0, padx=15, pady=8, cursor="hand2",
+                  command=lambda: self.controller.mostrar_frame("Invertir")).pack(side="right")
 
-        opciones = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "ADAUSDT", "DOGEUSDT", "XRPUSDT"]
-        
-        self.combo_busqueda = ttk.Combobox(frame_centro, values=opciones, font=("Arial", 14), state="readonly", justify="center")
-        self.combo_busqueda.set(opciones[0]) 
-        self.combo_busqueda.pack(pady=10)
+        # --- RESUMEN DE SALDO Y VARIACIÓN ---
+        frame_resumen = tk.Frame(self, bg="#121212")
+        frame_resumen.pack(fill="x", padx=25, pady=5)
 
-        # Usamos el color de botón de la app principal (#482673)
-        btn_buscar = tk.Button(frame_centro, text="Ver Gráfico", command=self.abrir_grafico, 
-                               font=("Arial", 12, "bold"), bg="#482673", fg="white", 
-                               width=15, bd=0, pady=10, cursor="hand2")
-        btn_buscar.pack(pady=20)
+        tk.Label(frame_resumen, text="Balance Total", font=("Arial", 11), fg="#b3b3b3", bg="#121212").pack(anchor="w")
 
-    def abrir_grafico(self):
-        """Oculta el selector y construye la pantalla de la gráfica"""
-        self.symbol = self.combo_busqueda.get().upper()
-        self.periodo_actual = "Hoy"
+        frame_valores = tk.Frame(frame_resumen, bg="#121212")
+        frame_valores.pack(fill="x")
 
-        # Ocultamos el selector y mostramos el contenedor del gráfico
-        self.vista_selector.pack_forget()
-        self.vista_grafico.pack(fill="both", expand=True)
+        self.lbl_total = tk.Label(frame_valores, text="0.00 €", font=("Arial", 28, "bold"), fg="white", bg="#121212")
+        self.lbl_total.pack(side="left")
 
-        # Limpiamos cualquier gráfico anterior para evitar duplicados si regresamos y entramos de nuevo
-        for widget in self.vista_grafico.winfo_children():
-            widget.destroy()
+        self.lbl_variacion = tk.Label(frame_valores, text="+0.00%", font=("Arial", 14, "bold"), fg="#2ecc71", bg="#121212")
+        self.lbl_variacion.pack(side="left", padx=(15, 10), pady=(10, 0))
 
-        # --- Reconstrucción de tu interfaz gráfica dentro del frame ---
-        top_frame = tk.Frame(self.vista_grafico, bg="#121212")
-        top_frame.pack(fill=tk.X, pady=10, padx=10)
+        self.btn_toggle = tk.Button(frame_valores, text="🔄 % / €", font=("Arial", 9, "bold"), bg="#333333", fg="white",
+                                    bd=0, padx=8, pady=4, cursor="hand2", command=self.toggle_variacion)
+        self.btn_toggle.pack(side="left", pady=(10, 0))
 
-        # Botón Volver modificado para regresar al selector interno
-        tk.Button(top_frame, text="⬅ Volver", command=self.volver_al_selector, 
-                  bg="#ff4c4c", fg="white", font=("Arial", 10, "bold"), bd=0, padx=10, pady=5, cursor="hand2").pack(side=tk.LEFT)
+        # --- CONTENEDOR CENTRAL (GRÁFICO Izquierda + FILTROS Derecha) ---
+        frame_central = tk.Frame(self, bg="#121212")
+        frame_central.pack(fill="both", expand=True, padx=25, pady=10)
 
-        self.label_titulo = tk.Label(top_frame, text=f"Precio {self.symbol}", font=("Arial", 16, "bold"), fg="white", bg="#121212")
-        self.label_titulo.pack(side=tk.LEFT, expand=True)
+        # 1. Zona Izquierda (Gráfico)
+        frame_grafico = tk.Frame(frame_central, bg="#1e1e1e", bd=1, relief="flat")
+        frame_grafico.pack(side="left", fill="both", expand=True)
 
-        self.label_precio = tk.Label(self.vista_grafico, text="Cargando...", font=("Arial", 24), fg="#00ffcc", bg="#121212")
-        self.label_precio.pack(pady=5)
-
-        # Botones de Temporalidad
-        frame_botones = tk.Frame(self.vista_grafico, bg="#121212")
-        frame_botones.pack(pady=5)
-
-        self.botones = {}
-        temporadas = [("Hoy", "Today"), ("Semana", "Week"), ("Mes", "Month"), ("Año", "Year")]
-        for col, (id_per, texto) in enumerate(temporadas):
-            btn = tk.Button(frame_botones, text=texto, command=lambda p=id_per: self.cambiar_vista(p), width=10, bd=0, pady=5, cursor="hand2")
-            btn.grid(row=0, column=col, padx=5)
-            self.botones[id_per] = btn
-
-        # Configuración de la Gráfica (Adaptada a Modo Oscuro para que se vea increíble)
-        self.figura = Figure(figsize=(7, 3.8), dpi=100, facecolor="#121212")
+        self.figura = Figure(figsize=(8, 4), dpi=100, facecolor="#1e1e1e")
         self.ax = self.figura.add_subplot(111)
         self.ax.set_facecolor("#1e1e1e")
-        self.ax.spines['bottom'].set_color('white')
-        self.ax.spines['top'].set_color('white')
-        self.ax.spines['left'].set_color('white')
-        self.ax.spines['right'].set_color('white')
-        self.ax.tick_params(colors='white')
-        self.ax.yaxis.label.set_color('white')
-        self.ax.set_ylabel("USD")
+        self.ax.tick_params(colors="white")
         
-        self.canvas = FigureCanvasTkAgg(self.figura, master=self.vista_grafico)
-        self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+        for spine in self.ax.spines.values():
+            spine.set_color("#333333")
 
-        self.actualizar_colores_botones()
-        self.actualizar_datos()
+        self.canvas = FigureCanvasTkAgg(self.figura, master=frame_grafico)
+        self.canvas.get_tk_widget().pack(fill="both", expand=True, padx=10, pady=10)
 
-    def volver_al_selector(self):
-        """Regresa a la vista del buscador de monedas"""
-        self.vista_grafico.pack_forget()
-        self.vista_selector.pack(fill="both", expand=True)
+        # 2. Zona Derecha (Botones de Filtro)
+        frame_filtros = tk.Frame(frame_central, bg="#121212")
+        frame_filtros.pack(side="right", fill="y", padx=(20, 0))
 
-    def obtener_precio_actual(self):
-        try:
-            url = f"https://api.binance.com/api/v3/ticker/price?symbol={self.symbol}"
-            respuesta = requests.get(url, timeout=5)
-            return float(respuesta.json()['price'])
-        except Exception:
-            return None
+        tk.Label(frame_filtros, text="Filtrar Vista:", font=("Arial", 11, "bold"), fg="#b3b3b3", bg="#121212").pack(anchor="w", pady=(0, 10))
 
-    def actualizar_colores_botones(self):
-        for periodo, boton in self.botones.items():
-            if periodo == self.periodo_actual:
-                boton.config(bg="#f2a900", fg="black", font=("Arial", 10, "bold"))
+        self.botones_filtro = {}
+        # Lista de filtros con iconos
+        filtros = [("🌐 Ver Todo", "Todo"), ("🏢 Acciones", "Acciones"), ("🪙 Cripto", "Cripto")]
+
+        for texto, valor in filtros:
+            btn = tk.Button(frame_filtros, text=texto, font=("Arial", 10, "bold"), bg="#333333", fg="white",
+                            bd=0, width=14, pady=10, cursor="hand2",
+                            command=lambda v=valor: self.cambiar_filtro(v))
+            btn.pack(pady=6)
+            self.botones_filtro[valor] = btn
+
+        # --- BOTONES DE TIEMPO (Debajo del Gráfico) ---
+        frame_tiempos = tk.Frame(self, bg="#121212")
+        frame_tiempos.pack(pady=(0, 20), anchor="w", padx=25)
+
+        periodos = [("1 Día", "1D"), ("1 Sem", "1S"), ("1 Mes", "1M"), ("1 Año", "1A"), ("MAX", "MAX")]
+        self.botones_tiempo = {}
+
+        for texto, valor in periodos:
+            btn = tk.Button(frame_tiempos, text=texto, font=("Arial", 10, "bold"), bg="#333333", fg="white",
+                            bd=0, width=8, pady=5, cursor="hand2",
+                            command=lambda v=valor: self.cambiar_periodo(v))
+            btn.pack(side="left", padx=(0, 10))
+            self.botones_tiempo[valor] = btn
+
+    def cargar_datos_usuario(self):
+        """Se ejecuta al entrar a la pestaña"""
+        self.cambiar_filtro("Todo") # Inicializa el filtro
+        self.cambiar_periodo("1M")  # Inicializa el tiempo
+
+    def toggle_variacion(self):
+        self.modo_porcentaje = not self.modo_porcentaje
+        self.actualizar_textos_variacion()
+
+    def cambiar_periodo(self, periodo):
+        self.periodo_actual = periodo
+        self.actualizar_estilo_botones_tiempo()
+        self.generar_datos_y_graficar()
+
+    def cambiar_filtro(self, filtro):
+        self.filtro_activo = filtro
+        self.actualizar_estilo_filtros()
+        self.generar_datos_y_graficar()
+
+    def actualizar_estilo_botones_tiempo(self):
+        color_activo = self.controller.color_btn if hasattr(self.controller, 'color_btn') else "#482673"
+        for valor, btn in self.botones_tiempo.items():
+            if valor == self.periodo_actual:
+                btn.config(bg=color_activo, fg="white")
             else:
-                boton.config(bg="#482673", fg="white", font=("Arial", 10, "normal"))
+                btn.config(bg="#333333", fg="#b3b3b3")
 
-    def cambiar_vista(self, nuevo_periodo):
-        self.periodo_actual = nuevo_periodo
-        self.actualizar_colores_botones() 
-        self.mostrar_historico()          
+    def actualizar_estilo_filtros(self):
+        color_activo = self.controller.color_btn if hasattr(self.controller, 'color_btn') else "#482673"
+        for valor, btn in self.botones_filtro.items():
+            if valor == self.filtro_activo:
+                btn.config(bg=color_activo, fg="white")
+            else:
+                btn.config(bg="#333333", fg="#b3b3b3")
 
-    def mostrar_historico(self):
-        configuracion = {
-            "Hoy": ("15m", 96),    
-            "Semana": ("2h", 84),  
-            "Mes": ("12h", 60),    
-            "Año": ("1d", 365)     
-        }
-        intervalo, limite = configuracion[self.periodo_actual]
+    def generar_datos_y_graficar(self):
+        """ SIMULADOR DE MERCADO (Reacciona a los filtros y al tiempo) """
+        ahora = datetime.now()
+        fechas = []
+        valores = []
+
+        # Configuración de tiempo
+        if self.periodo_actual == "1D":
+            delta = timedelta(hours=1); puntos = 24
+        elif self.periodo_actual == "1S":
+            delta = timedelta(hours=6); puntos = 28
+        elif self.periodo_actual == "1M":
+            delta = timedelta(days=1); puntos = 30
+        elif self.periodo_actual == "1A":
+            delta = timedelta(days=12); puntos = 30
+        else: # MAX
+            delta = timedelta(days=30); puntos = 36
+
+        # Configuración de simulador según el filtro elegido
+        if self.filtro_activo == "Todo":
+            valor_actual = 10000.0
+            volatilidad = 0.02
+        elif self.filtro_activo == "Acciones":
+            valor_actual = 7500.0
+            volatilidad = 0.012  # Las acciones son más estables
+        else: # Cripto
+            valor_actual = 2500.0
+            volatilidad = 0.04   # Las criptos son muy volátiles
+
+        # Generador de datos
+        for i in range(puntos):
+            fechas.insert(0, ahora - (i * delta))
+            valores.insert(0, valor_actual)
+            cambio = valor_actual * random.uniform(-volatilidad, volatilidad)
+            valor_actual -= cambio 
+
+        self.valor_inicial = valores[0]
+        self.valor_final = valores[-1]
+
+        # Actualizar Textos
+        self.lbl_total.config(text=f"{self.valor_final:,.2f} €")
+        self.actualizar_textos_variacion()
+
+        # Dibujar gráfico
+        self.ax.clear()
+        self.ax.grid(True, linestyle='--', alpha=0.1, color="white")
         
-        try:
-            url = f"https://api.binance.com/api/v3/klines?symbol={self.symbol}&interval={intervalo}&limit={limite}"
-            respuesta = requests.get(url, timeout=5)
-            datos = respuesta.json()
+        color_linea = "#2ecc71" if self.valor_final >= self.valor_inicial else "#ff4c4c"
+        
+        self.ax.plot(fechas, valores, color=color_linea, linewidth=2)
+        self.ax.fill_between(fechas, valores, min(valores)*0.99, color=color_linea, alpha=0.1)
 
-            tiempos_hist = []
-            precios_hist = []
+        if self.periodo_actual == "1D":
+            self.ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+        elif self.periodo_actual in ["1S", "1M"]:
+            self.ax.xaxis.set_major_formatter(mdates.DateFormatter('%d %b'))
+        else:
+            self.ax.xaxis.set_major_formatter(mdates.DateFormatter('%b %Y'))
 
-            for vela in datos:
-                timestamp = vela[0] / 1000 
-                dt_obj = datetime.fromtimestamp(timestamp)
-                tiempos_hist.append(dt_obj)
-                precios_hist.append(float(vela[4]))
+        self.figura.autofmt_xdate()
+        self.canvas.draw()
 
-            self.ax.clear()
-            self.ax.set_title(f"Histórico de Precio: {self.periodo_actual}", color="white")
-            self.ax.grid(True, linestyle='--', alpha=0.3, color="white")
-            self.ax.plot(tiempos_hist, precios_hist, marker='.', color='#00ffcc', linewidth=2, markersize=6)
-            
-            formato_fecha = '%H:%M' if self.periodo_actual == "Hoy" else '%Y-%m-%d'
-            self.ax.xaxis.set_major_formatter(mdates.DateFormatter(formato_fecha))
-            
-            self.figura.autofmt_xdate()
-            self.canvas.draw()
+    def actualizar_textos_variacion(self):
+        if not hasattr(self, 'valor_inicial'): return
+        
+        diferencia = self.valor_final - self.valor_inicial
+        porcentaje = (diferencia / self.valor_inicial) * 100 if self.valor_inicial != 0 else 0
 
-        except Exception as e:
-            print(f"Error gráfico: {e}")
+        color = "#2ecc71" if diferencia >= 0 else "#ff4c4c"
+        signo = "+" if diferencia >= 0 else ""
 
-    def actualizar_datos(self):
-        # Control de seguridad: Si el usuario regresó al selector o cambió de menú lateral, detenemos el bucle loop
-        if not hasattr(self, 'label_precio') or not self.label_precio.winfo_exists():
-            return
+        if self.modo_porcentaje:
+            texto = f"{signo}{porcentaje:.2f}%"
+        else:
+            texto = f"{signo}{diferencia:,.2f} €"
 
-        precio = self.obtener_precio_actual()
-        if precio:
-            self.label_precio.config(text=f"${precio:,.2f}")
+        self.lbl_variacion.config(text=texto, fg=color)
 
-        self.mostrar_historico()
-        # Volvemos a ejecutar en 10 segundos usando el método del frame
-        self.after(10000, self.actualizar_datos)
+    def abrir_ventana_invertir(self):
+        ventana_inv = tk.Toplevel(self)
+        ventana_inv.title("Mercado de Inversiones")
+        ventana_inv.geometry("450x300")
+        ventana_inv.configure(bg="#121212")
+        ventana_inv.resizable(False, False)
+        
+        ventana_inv.transient(self)
+        ventana_inv.grab_set()
+
+        tk.Label(ventana_inv, text="🚀 Nueva Inversión", font=("Arial", 16, "bold"), fg="#00ffcc", bg="#121212").pack(pady=(30, 10))
+        
+        mensaje = "Aquí se listarán las acciones (AAPL, TSLA...)\ny criptomonedas (BTC, ETH...).\n\nPodrás comprar y se añadirán\na tu portafolio personal."
+        tk.Label(ventana_inv, text=mensaje, font=("Arial", 11), fg="#b3b3b3", bg="#121212", justify="center").pack(pady=10)
+        
+        tk.Button(ventana_inv, text="Entendido", command=ventana_inv.destroy,
+                  font=("Arial", 11, "bold"), bg="#482673", fg="white", bd=0, pady=8, width=15, cursor="hand2").pack(pady=20)
