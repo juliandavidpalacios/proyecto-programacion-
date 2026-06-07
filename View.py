@@ -8,6 +8,7 @@ from screens.login import LoginFrame
 from screens.registro import RegistroFrame 
 from screens.invertir import InvertirFrame
 
+
 class FinanceView(tk.Tk):
     def __init__(self):
         super().__init__()
