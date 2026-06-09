@@ -1,7 +1,8 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 import os
-import json  # NUEVO: Importamos json para leer las futuras acciones
+import json
+import yfinance as yf
 
 class AhorrosFrame(tk.Frame):
     def __init__(self, parent, controller):
@@ -109,13 +110,78 @@ class AhorrosFrame(tk.Frame):
 
         self.actualizar_interfaz()
 
+    def obtener_valor_portafolio(self):
+        """
+        Lee perfil_portafolio.txt, consulta el precio actual de cada activo
+        con yfinance y devuelve el valor total en euros.
+        Formato del archivo: una línea por activo -> TICKER: cantidad
+        Ejemplo: BTC: 0.001823
+        """
+        ruta_perfil = r"C:\Users\santi\PycharmProjects\proyecto-programacion-\informacion_cliente\f_f\perfil_portafolio.txt"
+
+        if not os.path.exists(ruta_perfil):
+            print(f"[AVISO] No se encontró perfil_portafolio.txt en: {ruta_perfil}")
+            return 0.0
+
+        # Criptos conocidas: yfinance las necesita con sufijo -EUR para precio en euros
+        criptos_conocidas = {"BTC", "ETH", "DOGE", "ADA", "SOL", "XRP", "BNB", "LTC"}
+
+        posiciones = {}
+        try:
+            with open(ruta_perfil, "r", encoding="utf-8") as f:
+                for linea in f:
+                    linea = linea.strip()
+                    if not linea or ":" not in linea:
+                        continue
+                    partes = linea.split(":")
+                    ticker = partes[0].strip().upper()
+                    cantidad = float(partes[1].strip())
+                    posiciones[ticker] = posiciones.get(ticker, 0.0) + cantidad
+        except Exception as e:
+            print(f"[ERROR] Leyendo perfil_portafolio.txt: {e}")
+            return 0.0
+
+        if not posiciones:
+            return 0.0
+
+        # Construir lista de tickers en formato yfinance
+        tickers_yf = [
+            f"{t}-EUR" if t in criptos_conocidas else t
+            for t in posiciones.keys()
+        ]
+
+        total_euros = 0.0
+        try:
+            datos = yf.download(tickers_yf, period="1d", interval="1m", progress=False)
+            if datos.empty:
+                return 0.0
+
+            precios_cierre = datos["Close"].iloc[-1]
+
+            for ticker_orig, cantidad in posiciones.items():
+                ticker_yf = f"{ticker_orig}-EUR" if ticker_orig in criptos_conocidas else ticker_orig
+                try:
+                    # Si solo hay un ticker, precios_cierre es una Serie con índice temporal;
+                    # si hay varios, es una Serie con índice de tickers.
+                    if len(tickers_yf) == 1:
+                        precio = float(precios_cierre.iloc[-1])
+                    else:
+                        precio = float(precios_cierre[ticker_yf])
+                    total_euros += cantidad * precio
+                except Exception as e:
+                    print(f"[AVISO] No se pudo obtener precio de {ticker_yf}: {e}")
+
+        except Exception as e:
+            print(f"[ERROR] Descargando precios con yfinance: {e}")
+
+        return total_euros
+
     def actualizar_interfaz(self):
         for item in self.tabla.get_children():
             self.tabla.delete(item)
 
         total_ahorrado = 0.0
         aportado_mes = 0.0
-        total_invertido = 0.0  # Preparado para el futuro
 
         if not self.archivo_ahorros or not os.path.exists(self.archivo_ahorros):
             return
@@ -127,7 +193,7 @@ class AhorrosFrame(tk.Frame):
             for linea in reversed(lineas):
                 linea = linea.strip()
                 if not linea: continue
-                
+
                 partes = linea.split(",")
                 if len(partes) == 3:
                     tipo, cat, cant_str = partes
@@ -146,20 +212,10 @@ class AhorrosFrame(tk.Frame):
             self.lbl_total.config(text=f"{total_ahorrado:.2f} €")
             self.lbl_mes.config(text=f"{aportado_mes:.2f} €")
 
-            # 🚀 LÓGICA DEL FUTURO: Leer archivo de acciones si ya existe
-            carpeta_usuario = os.path.dirname(self.archivo_ahorros)
-            archivo_acciones = os.path.join(carpeta_usuario, "acciones.json")
-            
-            if os.path.exists(archivo_acciones):
-                with open(archivo_acciones, "r", encoding="utf-8") as f:
-                    datos_acciones = json.load(f)
-                    # Calculamos (cantidad * precio_compra) de cada cripto/acción
-                    for ticker, info in datos_acciones.items():
-                        cantidad_acciones = info.get("cantidad", 0)
-                        precio_compra = info.get("precio_compra", 0)
-                        total_invertido += (cantidad_acciones * precio_compra)
-
-            # Actualizar la nueva tarjeta de inversiones
+            # Obtener valor actual del portafolio desde perfil_portafolio.txt
+            self.lbl_inversiones.config(text="Cargando...")
+            self.update_idletasks()  # Refresca la UI antes de la llamada a internet
+            total_invertido = self.obtener_valor_portafolio()
             self.lbl_inversiones.config(text=f"{total_invertido:.2f} €")
 
         except Exception as e:

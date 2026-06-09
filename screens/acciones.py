@@ -6,6 +6,7 @@ import matplotlib.dates as mdates
 from datetime import datetime, timedelta
 import random
 import os
+import yfinance as yf
 
 class AccionesFrame(tk.Frame):
     def __init__(self, parent, controller):
@@ -14,6 +15,7 @@ class AccionesFrame(tk.Frame):
         self.modo_porcentaje = True  # True = Muestra %, False = Muestra €
         self.periodo_actual = "1M"   # Periodo por defecto
         self.filtro_activo = "Todo"  # NUEVO: Filtro por defecto
+        self._job_refresco = None    # Referencia al timer de auto-refresco
 
         self.crear_interfaz()
 
@@ -99,9 +101,26 @@ class AccionesFrame(tk.Frame):
             self.botones_tiempo[valor] = btn
 
     def cargar_datos_usuario(self):
-        """Se ejecuta al entrar a la pestaña"""
-        self.cambiar_filtro("Todo") # Inicializa el filtro
-        self.cambiar_periodo("1M")  # Inicializa el tiempo
+        """Se ejecuta al entrar a la pestaña: carga datos e inicia el auto-refresco"""
+        self.cambiar_filtro("Todo")
+        self.cambiar_periodo("1M")
+        self.iniciar_refresco()
+
+    def iniciar_refresco(self):
+        """Programa un refresco automático cada 5 segundos"""
+        self.detener_refresco()
+        self._job_refresco = self.after(5000, self._ciclo_refresco)
+
+    def detener_refresco(self):
+        """Cancela el timer de refresco si estaba activo"""
+        if self._job_refresco is not None:
+            self.after_cancel(self._job_refresco)
+            self._job_refresco = None
+
+    def _ciclo_refresco(self):
+        """Se ejecuta cada 5 segundos: actualiza la gráfica y se reprograma"""
+        self.generar_datos_y_graficar()
+        self._job_refresco = self.after(5000, self._ciclo_refresco)
 
     def toggle_variacion(self):
         self.modo_porcentaje = not self.modo_porcentaje
@@ -134,66 +153,251 @@ class AccionesFrame(tk.Frame):
                 btn.config(bg="#333333", fg="#b3b3b3")
 
     def generar_datos_y_graficar(self):
-        """ SIMULADOR DE MERCADO (Reacciona a los filtros y al tiempo) """
-        ahora = datetime.now()
-        fechas = []
-        valores = []
+        """ Genera la gráfica HISTÓRICA REAL leyendo los tickets de compra y cruzándolos con yfinance """
+        
+        # 1. LEER EL HISTORIAL DE COMPRAS (Viajar al pasado)
+        perfil_path = self.controller.usuario_logueado
+        folder = os.path.dirname(perfil_path)
+        archivo_historial = os.path.join(folder, "historial_inversiones.txt")
+        
+        transacciones = []
+        if os.path.exists(archivo_historial):
+            with open(archivo_historial, "r", encoding="utf-8") as f:
+                for linea in f:
+                    try:
+                        if "COMPRA" in linea:
+                            partes = linea.split("|")
+                            
+                            # partes[0] = "[2026-06-09 07:17:36] COMPRA"
+                            # partes[1] = " Activo: BTC"
+                            # partes[2] = " Dinero usado: 100.00 €"
+                            # partes[3] = " Acciones obtenidas: +0.001823"
+                            # partes[4] = " Precio de mercado: 54864.81 €"
+                            fecha_str = partes[0].split("]")[0].replace("[", "").strip()
+                            fecha = datetime.strptime(fecha_str, "%Y-%m-%d %H:%M:%S")
+                            
+                            ticker = partes[1].split(":")[1].strip()
+                            
+                            # Leer el dinero exacto pagado desde "Dinero usado: 100.00 €"
+                            dinero_usado = float(
+                                partes[2].split(":")[1].strip().replace("€", "").strip()
+                            )
+                            
+                            acciones = float(partes[3].split(":")[1].strip().replace("+", ""))
+                            transacciones.append({"fecha": fecha, "ticker": ticker,
+                                                  "acciones": acciones, "dinero_usado": dinero_usado})
+                    except Exception as e:
+                        print(f"Error leyendo línea del historial: {e}")
+                        continue
 
-        # Configuración de tiempo
-        if self.periodo_actual == "1D":
-            delta = timedelta(hours=1); puntos = 24
-        elif self.periodo_actual == "1S":
-            delta = timedelta(hours=6); puntos = 28
-        elif self.periodo_actual == "1M":
-            delta = timedelta(days=1); puntos = 30
-        elif self.periodo_actual == "1A":
-            delta = timedelta(days=12); puntos = 30
-        else: # MAX
-            delta = timedelta(days=30); puntos = 36
+        # Si el historial está vacío, mostrar gráfico plano en 0
+        if not transacciones:
+            self.lbl_total.config(text="0.00 €")
+            self.lbl_variacion.config(text="Sin inversiones", fg="#b3b3b3")
+            self.ax.clear()
+            self.ax.grid(True, linestyle='--', alpha=0.1, color="white")
+            self.canvas.draw()
+            return
 
-        # Configuración de simulador según el filtro elegido
-        if self.filtro_activo == "Todo":
-            valor_actual = 10000.0
-            volatilidad = 0.02
-        elif self.filtro_activo == "Acciones":
-            valor_actual = 7500.0
-            volatilidad = 0.012  # Las acciones son más estables
-        else: # Cripto
-            valor_actual = 2500.0
-            volatilidad = 0.04   # Las criptos son muy volátiles
+        # 2. APLICAR FILTROS DE VISTA (Acciones vs Cripto)
+        criptos_conocidas = ["BTC", "ETH", "DOGE", "ADA", "SOL", "XRP"]
+        if self.filtro_activo == "Acciones":
+            transacciones = [t for t in transacciones if t["ticker"] not in criptos_conocidas]
+        elif self.filtro_activo == "Cripto":
+            transacciones = [t for t in transacciones if t["ticker"] in criptos_conocidas]
 
-        # Generador de datos
-        for i in range(puntos):
-            fechas.insert(0, ahora - (i * delta))
-            valores.insert(0, valor_actual)
-            cambio = valor_actual * random.uniform(-volatilidad, volatilidad)
-            valor_actual -= cambio 
+        # Si tras filtrar no hay transacciones para esa categoría
+        if not transacciones: 
+            self.lbl_total.config(text="0.00 €")
+            self.ax.clear()
+            self.ax.grid(True, linestyle='--', alpha=0.1, color="white")
+            self.canvas.draw()
+            return
 
-        self.valor_inicial = valores[0]
-        self.valor_final = valores[-1]
+        # Identificar qué activos únicos tenemos en la lista filtrada
+        tickers_unicos = list(set([t["ticker"] for t in transacciones]))
+        tickers_yf = [f"{t}-EUR" if t in criptos_conocidas else t for t in tickers_unicos]
 
-        # Actualizar Textos
+        # 3. CONFIGURAR TIEMPO Y DESCARGAR DATOS DEL MERCADO GLOBAL
+        mapeo_tiempo = {
+            "1D": {"periodo": "1d", "intervalo": "2m"},
+            "1S": {"periodo": "5d", "intervalo": "5m"},
+            "1M": {"periodo": "1mo", "intervalo": "30m"},
+            "1A": {"periodo": "1y", "intervalo": "1d"},
+            "MAX": {"periodo": "max", "intervalo": "1d"}
+        }
+        config = mapeo_tiempo.get(self.periodo_actual, {"periodo": "1mo", "intervalo": "1d"})
+
+        try:
+            # Descargamos los precios de TODOS los activos que posee el usuario a la vez
+            datos = yf.download(tickers_yf, period=config["periodo"], interval=config["intervalo"], progress=False)
+            if datos.empty: return
+            
+            # ffill() y bfill() rellenan los huecos de los fines de semana de las acciones de forma perfecta
+            precios = datos['Close'].ffill().bfill()
+            
+            # CORRECCIÓN DE COMPATIBILIDAD: Si es una Serie, la convertimos en DataFrame
+            if hasattr(precios, 'to_frame'):
+                precios = precios.to_frame(name=tickers_yf[0])
+
+            precios.index = precios.index.tz_localize(None)
+            
+            # Forzar el momento actual exacto al final para que las compras de hoy entren siempre
+            ahora = datetime.now()
+            if ahora not in precios.index and self.periodo_actual in ["1D", "1S", "1M"]:
+                precios.loc[ahora] = precios.iloc[-1].copy()
+                precios = precios.sort_index()
+
+            fechas = precios.index
+            valores = []
+
+            # 🛠️ CORRECCIÓN AQUÍ: Determinar con precisión si es un gráfico de días enteros o de horas/minutos
+            es_grafico_diario = self.periodo_actual in ["1A", "MAX"]
+
+            # 4. RECONSTRUIR EL PORTAFOLIO PASO A PASO
+            for fecha_merc in fechas:
+                valor_momento = 0.0
+                
+                for i, ticker in enumerate(tickers_unicos):
+                    ticker_yf = tickers_yf[i]
+                    
+                    # Si es vista diaria (1A/MAX), comparamos solo fechas. Si es intradía (1D/1S/1M), comparamos hora exacta.
+                    if es_grafico_diario:
+                        acciones_acumuladas = sum([tr["acciones"] for tr in transacciones if tr["ticker"] == ticker and tr["fecha"].date() <= fecha_merc.date()])
+                    else:
+                        acciones_acumuladas = sum([tr["acciones"] for tr in transacciones if tr["ticker"] == ticker and tr["fecha"] <= fecha_merc])
+                    
+                    if acciones_acumuladas > 0:
+                        precio_activo = float(precios[ticker_yf].loc[fecha_merc])
+                        valor_momento += acciones_acumuladas * precio_activo
+                
+                valores.append(valor_momento)
+                
+        except Exception as e:
+            print(f"Error descargando portafolio real: {e}")
+            return
+
+        # Guardar valores para los textos de rendimiento
+        # valor_final   = valor actual del portafolio (último punto del gráfico)
+        # valor_inicial = suma exacta de "Dinero usado" leída del historial
+        #                 → 100.00 € si invertiste 100, sin importar el periodo del gráfico
+        self.valor_final = valores[-1] if valores else 0
+
+        # Prioridad 1: sumar el "Dinero usado" exacto guardado en el historial (céntimo perfecto)
+        coste_base = sum(tr["dinero_usado"] for tr in transacciones if tr.get("dinero_usado") is not None)
+
+        # Prioridad 2 (fallback): calcular con yfinance si por algún motivo no había ese campo
+        if coste_base == 0:
+            for tr in transacciones:
+                ticker_yf_tr = f"{tr['ticker']}-EUR" if tr['ticker'] in criptos_conocidas else tr['ticker']
+                try:
+                    idx_compra = precios.index.searchsorted(tr["fecha"])
+                    idx_compra = min(idx_compra, len(precios) - 1)
+                    precio_en_compra = float(precios[ticker_yf_tr].iloc[idx_compra])
+                    coste_base += tr["acciones"] * precio_en_compra
+                except Exception:
+                    pass
+
+        # Prioridad 3 (último recurso): primer valor no-cero del gráfico
+        if coste_base == 0:
+            primeros_no_cero = [v for v in valores if v > 0]
+            coste_base = primeros_no_cero[0] if primeros_no_cero else self.valor_final
+
+        self.valor_inicial = coste_base
+
         self.lbl_total.config(text=f"{self.valor_final:,.2f} €")
         self.actualizar_textos_variacion()
 
-        # Dibujar gráfico
+        # 5. DIBUJAR GRÁFICO
         self.ax.clear()
         self.ax.grid(True, linestyle='--', alpha=0.1, color="white")
         
-        color_linea = "#2ecc71" if self.valor_final >= self.valor_inicial else "#ff4c4c"
+        # Color dinámico (Verde si ganas o te mantienes, Rojo si pierdes)
+        base_comparacion = self.valor_inicial if self.valor_inicial > 0 else (self.valor_final * 0.99)
+        color_linea = "#2ecc71" if self.valor_final >= base_comparacion else "#ff4c4c"
         
-        self.ax.plot(fechas, valores, color=color_linea, linewidth=2)
-        self.ax.fill_between(fechas, valores, min(valores)*0.99, color=color_linea, alpha=0.1)
+        indices = list(range(len(valores)))
+        self.ax.plot(indices, valores, color=color_linea, linewidth=2)
+        
+        min_y = min(valores) if min(valores) > 0 else 0
+        self.ax.fill_between(indices, valores, min_y * 0.99, color=color_linea, alpha=0.1)
 
-        if self.periodo_actual == "1D":
-            self.ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
-        elif self.periodo_actual in ["1S", "1M"]:
-            self.ax.xaxis.set_major_formatter(mdates.DateFormatter('%d %b'))
+        num_ticks = 4
+        if len(valores) > 1:
+            indices_ticks = [int(i * (len(valores) - 1) / (num_ticks - 1)) for i in range(num_ticks)]
+            
+            if self.periodo_actual == "1D":
+                etiquetas_ticks = [fechas[idx].strftime('%H:%M') for idx in indices_ticks]
+            elif self.periodo_actual in ["1S", "1M"]:
+                etiquetas_ticks = [fechas[idx].strftime('%d %b') for idx in indices_ticks]
+            else:
+                etiquetas_ticks = [fechas[idx].strftime('%b %Y') for idx in indices_ticks]
+
+            self.ax.set_xticks(indices_ticks)
+            self.ax.set_xticklabels(etiquetas_ticks)
         else:
-            self.ax.xaxis.set_major_formatter(mdates.DateFormatter('%b %Y'))
+            self.ax.set_xticks([])
+
+        # --- 6. CONFIGURACIÓN DEL CURSOR INTERACTIVO ---
+        self.valores_grafico = valores
+        self.fechas_grafico = fechas
+
+        self.linea_cursor = self.ax.axvline(x=0, color='white', alpha=0.4, linestyle='--', visible=False)
+        self.anotacion = self.ax.annotate(
+            "", xy=(0,0), xytext=(15, 15),
+            textcoords="offset points",
+            bbox=dict(boxstyle="round,pad=0.4", fc="#2b2b2b", ec="gray", lw=1),
+            color="white", visible=False, fontfamily="Arial", fontsize=9
+        )
+
+        if hasattr(self, "evento_hover"):
+            self.canvas.mpl_disconnect(self.evento_hover)
+        self.evento_hover = self.canvas.mpl_connect("motion_notify_event", self.hover_grafico)
 
         self.figura.autofmt_xdate()
         self.canvas.draw()
+
+    def hover_grafico(self, event):
+        """Maneja el ratón sobre el gráfico general del portafolio"""
+        if not hasattr(self, 'valores_grafico') or not self.valores_grafico:
+            return
+
+        if event.inaxes == self.ax:
+            x_idx = int(round(event.xdata))
+            if 0 <= x_idx < len(self.valores_grafico):
+                precio_hover = self.valores_grafico[x_idx]
+                fecha_hover = self.fechas_grafico[x_idx]
+
+                if self.periodo_actual == "1D":
+                    fecha_str = fecha_hover.strftime('%H:%M')
+                elif self.periodo_actual in ["1S", "1M"]:
+                    fecha_str = fecha_hover.strftime('%d %b - %H:%M')
+                else:
+                    fecha_str = fecha_hover.strftime('%d %b %Y')
+
+                texto = f"{fecha_str}\n{precio_hover:,.2f} €"
+                self.anotacion.set_text(texto)
+                self.anotacion.xy = (x_idx, precio_hover)
+
+                # Si el ratón está muy a la derecha, mover la caja a la izquierda
+                if x_idx > len(self.valores_grafico) * 0.7:
+                    self.anotacion.set_position((-80, 15))
+                else:
+                    self.anotacion.set_position((15, 15))
+
+                self.linea_cursor.set_xdata([x_idx, x_idx])
+                self.linea_cursor.set_visible(True)
+                self.anotacion.set_visible(True)
+
+                self.lbl_total.config(text=f"{precio_hover:,.2f} €")
+                self.canvas.draw_idle()
+        else:
+            if hasattr(self, 'linea_cursor') and self.linea_cursor.get_visible():
+                self.linea_cursor.set_visible(False)
+                self.anotacion.set_visible(False)
+                precio_actual_real = float(self.valores_grafico[-1])
+                self.lbl_total.config(text=f"{precio_actual_real:,.2f} €")
+                self.canvas.draw_idle()
 
     def actualizar_textos_variacion(self):
         if not hasattr(self, 'valor_inicial'): return
@@ -228,3 +432,4 @@ class AccionesFrame(tk.Frame):
         
         tk.Button(ventana_inv, text="Entendido", command=ventana_inv.destroy,
                   font=("Arial", 11, "bold"), bg="#482673", fg="white", bd=0, pady=8, width=15, cursor="hand2").pack(pady=20)
+        

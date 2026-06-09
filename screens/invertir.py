@@ -429,7 +429,6 @@ class InvertirFrame(tk.Frame):
         portafolio[ticker] = acciones_previas + acciones_adquiridas
 
         # 6. REGISTRO UNIFICADO EN LA HUCHA DE AHORROS
-        # Escribimos un movimiento de retiro nativo para que 'ahorros.py' lo registre y reste
         try:
             with open(archivo_ahorros, "a", encoding="utf-8") as f:
                 f.write(f"Retiro,Inversiones ({ticker}),{cantidad:.2f}\n")
@@ -437,8 +436,24 @@ class InvertirFrame(tk.Frame):
             messagebox.showerror("Error", f"No se pudo asentar el cobro en tus Ahorros: {e}")
             return
 
-        # 7. Guardar las unidades de acciones actualizadas
+        # 7. Guardar las unidades de acciones actualizadas (Inventario general)
         self.guardar_portafolio_activos(archivo_portafolio, portafolio)
+
+        # --- 📝 NUEVO: CREAR TICKET EN EL HISTORIAL DE INVERSIONES ---
+        perfil_path = self.controller.usuario_logueado
+        folder = os.path.dirname(perfil_path)
+        archivo_historial = os.path.join(folder, "historial_inversiones.txt")
+        
+        # Obtenemos la fecha y hora exactas en este mismo instante
+        fecha_hora_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        try:
+            with open(archivo_historial, "a", encoding="utf-8") as f:
+                # Escribimos la línea detallada con todos los datos que pediste
+                f.write(f"[{fecha_hora_actual}] COMPRA | Activo: {ticker} | Dinero usado: {cantidad:.2f} € | Acciones obtenidas: +{acciones_adquiridas:.6f} | Precio de mercado: {precio_actual:.2f} €\n")
+        except Exception as e:
+            print(f"Error al guardar el historial detallado: {e}")
+        # -------------------------------------------------------------
 
         # 8. Mostrar confirmación en pantalla
         nuevo_saldo_simulado = saldo_ahorros - cantidad
