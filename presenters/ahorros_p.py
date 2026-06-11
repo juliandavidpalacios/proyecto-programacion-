@@ -1,6 +1,4 @@
-# Importamos herramientas específicas de diálogos de alerta desde el ecosistema tkinter
 from tkinter import messagebox
-# Importamos el submódulo tkinter de manera genérica para conservar acceso a constantes como tk.END
 import tkinter as tk
 
 class AhorrosPresenter:

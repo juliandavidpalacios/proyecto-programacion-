@@ -1,6 +1,4 @@
-# Importamos la librería gráfica de interfaces de usuario tk
 import tkinter as tk
-# Importamos todas tus pantallas (frames) originales respetando tus rutas exactas
 from screens.home import HomeFrame
 from screens.ahorros import AhorrosFrame
 from screens.acciones import AccionesFrame
@@ -138,7 +136,7 @@ class MainView(tk.Tk):
     # Método visual que dibuja e inserta los botones en el panel lateral
     def crear_menu_botones(self, color_btn):
         # Definimos tu arreglo de opciones originales para los botones
-        opciones = ["Home", "Ahorros", "Acciones", "Cuenta"]
+        opciones = ["Home", "Ahorros", "Acciones", "Cuenta","Gastos"]
         # Limpiamos la lista de botones por seguridad
         self.botones_lista = []
         # Iteramos sobre los textos de las opciones
@@ -160,6 +158,7 @@ class MainView(tk.Tk):
         from screens.acciones import AccionesFrame
         from screens.cuenta import CuentaFrame
         from screens.invertir import InvertirView
+        from screens.gastos import GastosFrame
 
         # Mapeamos cada Vista con su respectivo Modelo y Presentador
         # Esto le permite al bucle saber exactamente qué piezas conectar para cada sección
@@ -192,6 +191,11 @@ class MainView(tk.Tk):
                 "import_modelo": lambda: __import__("Models.cuenta_m", fromlist=["CuentaModel"]).CuentaModel,
                 "import_presenter": lambda: __import__("presenters.cuenta_p",
                                                        fromlist=["CuentaPresenter"]).CuentaPresenter
+            },
+            "Gastos": {
+                "vista_clase": GastosFrame,
+                "import_modelo": lambda: __import__("Models.gastos_m", fromlist=["GastosModel"]).GastosModel,
+                "import_presenter": lambda: __import__("presenters.gastos_p", fromlist=["GastosPresenter"]).GastosPresenter
             }
         }
 

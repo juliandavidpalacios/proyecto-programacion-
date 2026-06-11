@@ -107,7 +107,7 @@ class AhorrosFrame(tk.Frame):
         self.combo_categoria = ttk.Combobox(frame_acciones, font=("Arial", 10), state="readonly", style="TCombobox")
         # Define la tupla estática con los nombres de las categorías de ahorro disponibles
         self.combo_categoria["values"] = ("Fondo de Emergencia", "Vacaciones ✈️", "Coche Nuevo 🚗", "Inversiones 📈",
-                                          "Otros")
+                                          "Otros", "Cuenta")
         # Configura la primera opción del listado como la selección predeterminada de la interfaz
         self.combo_categoria.current(0)
         # Integra el menú de opciones desplegable estirándolo para cubrir el ancho de su panel
@@ -177,3 +177,4 @@ class AhorrosFrame(tk.Frame):
         if self.presenter:
             # Delega la responsabilidad de inicialización de datos hacia el objeto presentador
             self.presenter.inicializar_sesion()
+

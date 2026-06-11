@@ -1,27 +1,19 @@
-# Importamos la librería para interactuar con las rutas y archivos del sistema operativo
 import os
-# Importamos la librería para realizar descargas de datos financieros desde Yahoo Finance
 import yfinance as yf
 
 class AhorrosModel:
-    # Constructor de la clase Modelo que inicializa las propiedades de datos base
     def __init__(self):
         # Almacena la ruta del archivo de texto donde se registran los movimientos de ahorro
         self.archivo_ahorros = None
 
     # Método para preparar y resolver las rutas de archivos asignadas al usuario logueado
     def establecer_ruta_usuario(self, perfil_txt):
-        # Extrae la ruta de la carpeta contenedora a partir de la dirección del perfil del usuario
         carpeta_usuario = os.path.dirname(perfil_txt)
         # Combina la ruta de la carpeta con el nombre estándar del archivo de ahorros
         self.archivo_ahorros = os.path.join(carpeta_usuario, "ahorros.txt")
-        # Verifica si el archivo de texto de ahorros no existe en el almacenamiento local
         if not os.path.exists(self.archivo_ahorros):
-            # Abre el archivo en modo escritura con codificación UTF-8 para crearlo vacío
             with open(self.archivo_ahorros, "w", encoding="utf-8") as f:
-                # Escribe una cadena vacía para inicializar de forma segura el archivo físico
                 pass
-        # Retorna la ruta final resuelta del archivo de ahorros
         return self.archivo_ahorros
 
     # Método de lectura que consulta el precio actual de activos financieros y calcula su valor total
@@ -30,13 +22,10 @@ class AhorrosModel:
         ruta_perfil = r"C:\Users\santi\PycharmProjects\proyecto-programacion-\informacion_cliente\f_f\perfil_portafolio.txt"
         # Comprueba si el archivo físico del portafolio no existe en la ubicación especificada
         if not os.path.exists(ruta_perfil):
-            # Muestra un mensaje en consola notificando la falta del archivo requerido
             print(f"[AVISO] No se encontró perfil_portafolio.txt en: {ruta_perfil}")
-            # Devuelve un valor por defecto de cero al no poder computar activos
             return 0.0
-        # Conjunto optimizado de identificadores correspondientes a criptomonedas conocidas
+
         criptos_conocidas = {"BTC", "ETH", "DOGE", "ADA", "SOL", "XRP", "BNB", "LTC"}
-        # Inicializa un diccionario vacío para consolidar las posiciones financieras encontradas
         posiciones = {}
         try:
             # Abre el archivo del portafolio en modo lectura garantizando soporte para caracteres internacionales
@@ -49,9 +38,7 @@ class AhorrosModel:
                     if not linea or ":" not in linea:
                         # Continúa de inmediato con la siguiente línea del bucle
                         continue
-                    # Divide la cadena de texto en una lista separando por el carácter ":"
                     partes = linea.split(":")
-                    # Extrae el ticker limpando espacios vacíos y convirtiéndolo a letras mayúsculas
                     ticker = partes[0].strip().upper()
                     # Extrae la cantidad numérica convirtiendo el fragmento de texto a tipo flotante
                     cantidad = float(partes[1].strip())

@@ -1,4 +1,4 @@
-# Definimos la clase MainPresenter que orquesta el patrón arquitectónico
+
 class MainPresenter:
     # Constructor que recibe inyectados a la Vista y al Modelo principales
     def __init__(self, view, model):
