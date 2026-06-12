@@ -1,12 +1,57 @@
+# Models/registro_m.py
 import re
 import os
 
-# Definimos la clase RegistroModel que representará la capa de datos en el patrón MVP
+class RegistroRepository:
+    """Patrón Repository: Encargado exclusivo de crear carpetas y escribir archivos.
+    Oculta los detalles de implementación (disco duro, txt, carpetas)."""
+    
+    def __init__(self, carpeta_raiz="informacion_cliente", nombre_fichero="perfil.txt"):
+        self._carpeta_raiz = carpeta_raiz
+        self._nombre_fichero = nombre_fichero
+
+    def guardar_nuevo_usuario(self, dni, datos_usuario):
+        """Recibe un diccionario con datos y los escribe físicamente en el disco."""
+        try:
+            # Crea la ruta de la carpeta usando el DNI como identificador único
+            ruta_carpeta = os.path.join(self._carpeta_raiz, dni)
+            
+            # Comprueba si el usuario ya existe
+            if os.path.exists(ruta_carpeta):
+                return False, "El usuario con este DNI ya se encuentra registrado."
+
+            # Crea la carpeta
+            os.makedirs(ruta_carpeta)
+            ruta_archivo = os.path.join(ruta_carpeta, self._nombre_fichero)
+
+            # Escribe los datos en el archivo
+            with open(ruta_archivo, "w", encoding="utf-8") as archivo:
+                archivo.write("=======================================\n")
+                archivo.write(f"Nombre:               {datos_usuario['nombre']}\n")
+                archivo.write(f"Apellidos:            {datos_usuario['apellidos']}\n")
+                archivo.write(f"DNI:                  {dni}\n")
+                archivo.write(f"Fecha de Nacimiento:  {datos_usuario['fecha']}\n")
+                archivo.write(f"Correo Electrónico:   {datos_usuario['email']}\n")
+                archivo.write(f"Teléfono:             {datos_usuario['prefijo']} {datos_usuario['telefono']}\n")
+                archivo.write(f"Contraseña:           {datos_usuario['password']}\n")
+                archivo.write(f"Color Fondo Menu:     #2D033B\n")
+                archivo.write(f"Color Boton Menu:     #482673\n")
+                archivo.write("=======================================\n")
+                
+            return True, None
+        except Exception as e:
+            return False, str(e)
+
+
 class RegistroModel:
-    # Definimos el constructor de la clase para inicializar el diccionario de países de forma centralizada
+    """Capa de Negocio. Valida reglas (emails, formato) y usa el repositorio para guardar."""
+    
     def __init__(self):
-        # Diccionario estático masivo de países con sus prefijos internacionales y banderas descriptivas
-        self.paises = {
+        self.repository = RegistroRepository()
+        self.patron_correo = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        
+        # Volvemos a añadir el diccionario de países en el modelo (su lugar arquitectónico correcto)
+        self._paises = {
             "Afganistán": {"prefijo": "+93", "bandera": "🇦🇫"}, "Alemania": {"prefijo": "+49", "bandera": "🇩🇪"},
             "Argentina": {"prefijo": "+54", "bandera": "🇦🇷"}, "Colombia": {"prefijo": "+57", "bandera": "🇨🇴"},
             "España": {"prefijo": "+34", "bandera": "🇪🇸"}, "Estados Unidos": {"prefijo": "+1", "bandera": "🇺🇸"},
@@ -14,63 +59,32 @@ class RegistroModel:
             "Perú": {"prefijo": "+51", "bandera": "🇵🇪"}, "Reino Unido": {"prefijo": "+44", "bandera": "🇬🇧"},
             "Venezuela": {"prefijo": "+58", "bandera": "🇻🇪"}
         }
-        # Guardamos la expresión regular estándar para comprobar la estructura sintáctica de correos electrónicos
-        self.patron_correo = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
 
-    # >>> NUEVO MÉTODO AÑADIDO PARA SOLUCIONAR EL ERROR DEL PRESENTADOR <<<
-    # Método lógico encargado de validar si una dirección de correo electrónico cumple con el patrón Regex establecido
-    def validar_correo(self, email):
-        # Ejecuta la comprobación del patrón sobre la cadena recibida y devuelve un valor booleano implícito (True o False)
-        return bool(re.match(self.patron_correo, email))
+    def obtener_paises(self):
+        """Devuelve el diccionario protegido de países."""
+        return self._paises
 
-    # Método encargado de estructurar y almacenar de forma física la información bancaria en un archivo de texto
-    def registrar_usuario(self, nombre, apellidos, dni, fecha, email, prefijo, telefono, pass1):
-        # Definimos el nombre de la carpeta raíz encargada de centralizar la información de los clientes
-        carpeta = "informacion_cliente"
+    def registrar_usuario(self, nombre, apellidos, dni, fecha, email, telefono, prefijo, password):
+        """Aplica reglas lógicas antes de permitir la persistencia."""
+        
+        # 1. Regla de Negocio: Validar formato del correo
+        if not re.match(self.patron_correo, email):
+            return False, "El formato del correo electrónico no es válido."
+            
+        # 2. Regla de Negocio: Validar que el DNI/Teléfono no contenga anomalías graves
+        if not dni.isalnum() or not telefono.isdigit():
+             return False, "El DNI o Teléfono contienen caracteres no válidos."
 
-        # Reemplazamos los espacios del nombre y apellidos por guiones bajos para generar un nombre de carpeta seguro
-        nombre_usuario_seguro = f"{nombre}_{apellidos}".replace(" ", "_")
-        # Unimos de forma absoluta la carpeta contenedora con la subcarpeta del usuario específico
-        carpeta_usuario = os.path.join(carpeta, nombre_usuario_seguro)
-        # Forzamos la creación del árbol de directorios físico en el disco si este no existiese previamente
-        os.makedirs(carpeta_usuario, exist_ok=True)
+        # 3. Preparar Entidad/Diccionario de datos limpios
+        datos_usuario = {
+            "nombre": nombre.title(),
+            "apellidos": apellidos.title(),
+            "fecha": fecha,
+            "email": email.lower(),
+            "telefono": telefono,
+            "prefijo": prefijo,
+            "password": password
+        }
 
-        # Establecemos la ruta final combinando la subcarpeta específica con el archivo estático perfil.txt
-        ruta_completa = os.path.join(carpeta_usuario, "perfil.txt")
-
-        # Iniciamos un bloque de control de excepciones para reportar fallos de permisos o de escritura en disco
-        try:
-            # Abrimos el archivo perfil.txt en modo de escritura destructiva ("w") con codificación universal UTF-8
-            with open(ruta_completa, "w", encoding="utf-8") as archivo:
-                # Escribimos los caracteres delimitadores superiores del bloque del reporte
-                archivo.write("=======================================\n")
-                # Escribimos el título institucional centrado del reporte bancario
-                archivo.write("       INFORMACIÓN BANCARIA DEL CLIENTE\n")
-                # Escribimos los caracteres delimitadores inferiores de la cabecera
-                archivo.write("=======================================\n")
-                # Grabamos la concatenación formateada del nombre y apellidos dentro del archivo físico
-                archivo.write(f"Nombre Completo:      {nombre} {apellidos}\n")
-                # Grabamos la clave identificadora única del DNI o Pasaporte del cliente
-                archivo.write(f"DNI / NIE:            {dni}\n")
-                # Escribimos la cadena correspondiente a la fecha de nacimiento ingresada
-                archivo.write(f"Fecha de Nacimiento:  {fecha}\n")
-                # Escribimos el correo electrónico validado del usuario para su inicio de sesión posterior
-                archivo.write(f"Correo Electrónico:   {email}\n")
-                # Almacenamos el teléfono de contacto anteponiendo el prefijo internacional recuperado
-                archivo.write(f"Teléfono:             {prefijo} {telefono}\n")
-                # Escribimos de forma plana la contraseña definida para la cuenta del cliente
-                archivo.write(f"Contraseña:           {pass1}\n")
-
-                # Escribimos las propiedades de diseño de la interfaz como el color hexadecimal de fondo por defecto
-                archivo.write(f"Color Fondo Menu:     #2D033B\n")
-                # Escribimos de igual forma el color del botón por defecto para la consistencia visual de la app
-                archivo.write(f"Color Boton Menu:     #482673\n")
-
-                # Concluimos el bloque del archivo escribiendo la línea de cierre perimetral
-                archivo.write("=======================================\n")
-            # Si el archivo se redactó y cerró sin problemas, devolvemos un estado exitoso (True) al presentador
-            return True, None
-        # Atrapamos cualquier error físico del sistema de archivos que impida la creación del archivo
-        except Exception as e:
-            # Retornamos un estado fallido acoplado al objeto de error para que el presentador lo muestre en pantalla
-            return False, e
+        # 4. Delegar la persistencia física al repositorio
+        return self.repository.guardar_nuevo_usuario(dni, datos_usuario)

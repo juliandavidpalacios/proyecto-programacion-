@@ -1,79 +1,99 @@
-# Importamos el módulo os para tener acceso a las funciones del sistema de archivos y directorios
+# Models/login_m.py
 import os
 
+class Usuario:
+    """Clase de Dominio (Entidad). Representa a un usuario del sistema en memoria.
+    Cero conocimiento de infraestructura (archivos, rutas, etc.)."""
+    def __init__(self, id_usuario, email, password):
+        self.id_usuario = id_usuario  
+        self.email = email
+        self.password = password
 
-# Definimos la clase LoginModel que representará la capa de datos en el patrón MVP
+
+class UsuarioRepository:
+    """Patrón de Diseño: Repository.
+    Único responsable de interactuar con el sistema de archivos (informacion_cliente)."""
+    
+    def __init__(self, carpeta_raiz="informacion_cliente", nombre_fichero="perfil.txt"):
+        # Hacemos las propiedades privadas (con guion bajo) para denotar encapsulamiento
+        self._carpeta_raiz = carpeta_raiz
+        self._nombre_fichero = nombre_fichero
+
+    def existe_almacenamiento(self):
+        """Verifica si la base de datos física existe y tiene datos."""
+        return os.path.exists(self._carpeta_raiz) and os.listdir(self._carpeta_raiz)
+
+    def obtener_ruta_perfil(self, id_usuario):
+        """
+        NUEVO MÉTODO ENCAPSULADO:
+        Cualquier necesidad de construir rutas físicas se resuelve aquí dentro.
+        Nadie fuera de esta clase sabe cómo se compone la ruta de un usuario.
+        """
+        return os.path.join(self._carpeta_raiz, id_usuario, self._nombre_fichero)
+
+    def obtener_todos(self):
+        """Navega por los ficheros y los transforma en una lista de Objetos Usuario."""
+        usuarios = []
+        if not self.existe_almacenamiento():
+            return usuarios
+
+        for subcarpeta in os.listdir(self._carpeta_raiz):
+            ruta_subcarpeta = os.path.join(self._carpeta_raiz, subcarpeta)
+            
+            if os.path.isdir(ruta_subcarpeta):
+                ruta_completa = os.path.join(ruta_subcarpeta, self._nombre_fichero)
+                
+                if os.path.exists(ruta_completa):
+                    usuario = self._parsear_archivo_perfil(subcarpeta, ruta_completa)
+                    if usuario:
+                        usuarios.append(usuario)
+        return usuarios
+
+    def _parsear_archivo_perfil(self, id_usuario, ruta_archivo):
+        """Método privado: Se encarga exclusivamente del parseo del archivo de texto."""
+        try:
+            with open(ruta_archivo, "r", encoding="utf-8") as f:
+                lineas = f.readlines()
+
+            email = None
+            password = None
+
+            for linea in lineas:
+                if linea.startswith("Correo Electrónico:"):
+                    email = linea.split(":")[1].strip()
+                elif linea.startswith("Contraseña:"):
+                    password = linea.split(":")[1].strip()
+
+            if email and password:
+                return Usuario(id_usuario=id_usuario, email=email, password=password)
+        except Exception as e:
+            print(f"Error crítico en repositorio leyendo {ruta_archivo}: {e}")
+        return None
+
+
 class LoginModel:
-    # Definimos el constructor de la clase Modelo, el cual no requiere parámetros iniciales obligatorios
+    """Capa de Negocio. Aplica reglas de negocio interactuando únicamente 
+    con abstracciones, respetando el ocultamiento de información."""
+    
     def __init__(self):
-        # El constructor se inicializa vacío ya que la base de datos se lee de archivos físicos en el disco duro
-        pass
+        self.repository = UsuarioRepository()
 
-    # Método encargado de buscar, leer y verificar si las credenciales coinciden con algún archivo registrado
     def validar_credenciales(self, correo_ingresado, pass_ingresada):
-        # Asignamos a la variable carpeta el nombre del directorio raíz donde se guardan los datos de los usuarios
-        carpeta = "informacion_cliente"
-
-        # Comprobamos de manera lógica si la carpeta principal no existe o si se encuentra completamente vacía
-        if not os.path.exists(carpeta) or not os.listdir(carpeta):
-            # Retornamos un estado falso, ninguna ruta de usuario y un código de error específico para este caso
+        """Valida las credenciales sin violar el encapsulamiento del repositorio."""
+        
+        # 1. Regla de negocio: Verificar si hay usuarios
+        if not self.repository.existe_almacenamiento():
             return False, None, "no_usuarios"
 
-        # Inicializamos la bandera booleana usuario_valido en False indicando que por ahora no se ha autenticado
-        usuario_valido = False
-        # Inicializamos la variable encargada de guardar la ubicación exacta del archivo perfil en None
-        ruta_usuario = None
+        # 2. Obtenemos entidades puras
+        lista_usuarios = self.repository.obtener_todos()
 
-        # Iniciamos un ciclo para recorrer cada elemento o subcarpeta que se encuentre dentro de informacion_cliente
-        for subcarpeta in os.listdir(carpeta):
-            # Construimos la ruta absoluta uniendo el nombre de la carpeta raíz con el de la subcarpeta del bucle
-            ruta_subcarpeta = os.path.join(carpeta, subcarpeta)
+        # 3. Procesamos la lógica de negocio en base a objetos
+        for usuario in lista_usuarios:
+            if usuario.email == correo_ingresado and usuario.password == pass_ingresada:
+                # ÉXITO: Le pedimos educadamente la ruta al repositorio. 
+                # El modelo ya no "adivina" ni manipula variables internas ajenas.
+                ruta_usuario = self.repository.obtener_ruta_perfil(usuario.id_usuario)
+                return True, ruta_usuario, None
 
-            # Verificamos mediante una validación del sistema que la ruta actual corresponda realmente a un directorio
-            if os.path.isdir(ruta_subcarpeta):
-                # Construimos la ruta completa apuntando directamente al fichero interno denominado perfil.txt
-                ruta_completa = os.path.join(ruta_subcarpeta, "perfil.txt")
-
-                # Evaluamos si el archivo físico perfil.txt existe de verdad dentro de esa subcarpeta analizada
-                if os.path.exists(ruta_completa):
-                    try:
-                        # Abrimos el archivo de texto en modo de solo lectura ("r") y con codificación universal UTF-8
-                        with open(ruta_completa, "r", encoding="utf-8") as f:
-                            # Leemos todas las líneas de texto del archivo y las guardamos organizadas dentro de una lista
-                            lineas = f.readlines()
-
-                        # Colocamos una variable de control para el correo en False antes de inspeccionar las líneas
-                        email_ok = False
-                        # Colocamos una variable de control para la contraseña en False antes de inspeccionar las líneas
-                        pass_ok = False
-
-                        # Recorremos de manera secuencial cada línea de texto almacenada en la lista de líneas del fichero
-                        for linea in lineas:
-                            # Evaluamos si la cadena de texto de la línea actual comienza exactamente con la etiqueta indicada
-                            if linea.startswith("Correo Electrónico:"):
-                                # Dividimos la cadena por los dos puntos, tomamos la parte derecha y removemos sus espacios vacíos
-                                if linea.split(":")[1].strip() == correo_ingresado:
-                                    # Activamos la bandera de email_ok a True ya que el correo coincide a la perfección
-                                    email_ok = True
-                            # Evaluamos si la cadena de texto de la línea actual empieza con la etiqueta de la clave
-                            elif linea.startswith("Contraseña:"):
-                                # Dividimos la cadena por los dos puntos, extraemos el valor derecho y limpiamos sus espacios laterales
-                                if linea.split(":")[1].strip() == pass_ingresada:
-                                    # Activamos la bandera de pass_ok a True ya que la clave ingresada es matemáticamente idéntica
-                                    pass_ok = True
-
-                        # Si ambas banderas de control (email_ok y pass_ok) resultaron verdaderas de forma simultánea
-                        if email_ok and pass_ok:
-                            # Cambiamos la variable de validez general del inicio de sesión a True
-                            usuario_valido = True
-                            # Copiamos la ruta completa del archivo de perfil validado a nuestra variable de salida
-                            ruta_usuario = ruta_completa
-                            # Rompemos por completo el ciclo for de las subcarpetas puesto que el usuario ya fue localizado
-                            break
-                    # Capturamos cualquier error imprevisto de lectura, codificación o bloqueo de archivos
-                    except Exception as e:
-                        # Imprimimos de manera informativa en la terminal del sistema el error detallado del archivo dañado
-                        print(f"Error leyendo {ruta_completa}: {e}")
-
-        # Retornamos el estado de validez, la ruta del archivo perfil hallado y None en la variable de error
-        return usuario_valido, ruta_usuario, None
+        return False, None, None

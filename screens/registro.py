@@ -58,11 +58,11 @@ class RegistroView(tk.Frame):
         # Configuramos de forma temporal el color de las letras del placeholder a un gris opaco
         self.entry_fecha.config(fg="#555555")
         # Vinculamos el evento de entrada de foco de selección para borrar la máscara guiada mediante el presentador
-        self.entry_fecha.bind("<FocusIn>", lambda e: self.presenter.fecha_focus_in(e))
+        self.entry_fecha.bind("<FocusIn>", lambda e: self.fecha_focus_in(e))
         # Vinculamos el evento de pérdida de foco para restaurar la máscara si el campo quedó vacío
-        self.entry_fecha.bind("<FocusOut>", lambda e: self.presenter.fecha_focus_out(e))
+        self.entry_fecha.bind("<FocusOut>", lambda e: self.fecha_focus_out(e))
         # Conectamos el evento de liberación de tecla para delegar el formateo dinámico al presentador
-        self.entry_fecha.bind("<KeyRelease>", lambda e: self.presenter.formatear_fecha(e))
+        self.entry_fecha.bind("<KeyRelease>", lambda e: self.formatear_fecha(e))
 
         # --- COLUMNA 2 (Contacto y Seguridad) ---
         # Colocamos el texto indicativo del correo electrónico abriendo la segunda columna del layout
@@ -90,7 +90,7 @@ class RegistroView(tk.Frame):
         self.combo_pais.pack(side="left")
 
         # Registramos el validador de caracteres en la ventana tkinter enlazándolo a la lógica del presentador
-        validador_num = self.register(lambda texto: self.presenter.limitar_telefono(texto))
+        validador_num = self.register(lambda texto: self.limitar_telefono(texto))
         # Instanciamos la entrada de texto del teléfono inyectándole la instrucción de validación de teclas activa
         self.entry_tel = tk.Entry(frame_tel, font=("Arial", 12), width=15, bg="#1e1e1e",
                                   fg="white", insertbackground="white", bd=0,
@@ -98,7 +98,7 @@ class RegistroView(tk.Frame):
         # Empaquetamos la entrada del número telefónico a un costado del combobox agregando una separación lateral
         self.entry_tel.pack(side="left", padx=(5, 0))
         # Conectamos la liberación de teclas de este entry al método de conteo de dígitos alojado en el presentador
-        self.entry_tel.bind("<KeyRelease>", lambda e: self.presenter.verificar_9_digitos(e))
+        self.entry_tel.bind("<KeyRelease>", lambda e: self.verificar_9_digitos(e))
 
         # Dibujamos una línea estética inferior de color morado debajo del layout del bloque de teléfono
         tk.Frame(container, bg="#482673", height=2).grid(row=4, column=1, sticky="swe", padx=20)
@@ -125,7 +125,18 @@ class RegistroView(tk.Frame):
         btn_frame.grid(row=9, column=0, columnspan=2, pady=20)
 
         # Creamos el botón de Confirmar Registro asociando de forma estricta su comando hacia el presentador
-        tk.Button(btn_frame, text="Confirmar Registro", command=lambda: self.presenter.ejecutar_registro(),
+        tk.Button(btn_frame, text="Confirmar Registro", 
+                  command=lambda: self.presenter.verificar_registro(
+                    self.entry_nombre.get(),
+                    self.entry_apellidos.get(),
+                    self.entry_dni.get(),
+                    self.entry_fecha.get(),
+                    self.entry_email.get(),
+                    self.entry_tel.get(),
+                    self.combo_pais.get(),
+                    self.entry_pass.get(),
+                    self.entry_pass_confirm.get()
+                ),
                   font=("Arial", 11, "bold"), bg="#482673", fg="white",
                   width=20, bd=0, pady=10, cursor="hand2").pack(side="left", padx=10)
 
@@ -152,3 +163,67 @@ class RegistroView(tk.Frame):
         tk.Frame(parent, bg="#482673", height=2).grid(row=row, column=col, sticky="swe", padx=20)
         # Devuelve la referencia del widget Entry creado para poder enlazarlo en las variables globales de la vista
         return entry
+    def mostrar_error(self, titulo, mensaje):
+        from tkinter import messagebox
+        messagebox.showerror(titulo, mensaje)
+
+    def mostrar_exito(self, titulo, mensaje):
+        from tkinter import messagebox
+        messagebox.showinfo(titulo, mensaje)
+    
+    # =================================================================
+    # MÉTODOS DE FORMATO VISUAL (Lógica exclusiva de la Vista)
+    # =================================================================
+
+    def fecha_focus_in(self, event):
+        """Borra el texto de pista cuando el usuario hace clic en la fecha"""
+        if self.entry_fecha.get() == "DD/MM/AAAA":
+            self.entry_fecha.delete(0, tk.END)
+            self.entry_fecha.config(fg="white")
+
+    def fecha_focus_out(self, event):
+        """Vuelve a poner el texto de pista si el usuario se va sin escribir nada"""
+        if not self.entry_fecha.get():
+            self.entry_fecha.insert(0, "DD/MM/AAAA")
+            self.entry_fecha.config(fg="gray")
+
+    def formatear_fecha(self, event):
+        """Filtra letras en tiempo real, añade barras '/' y limita a 10 caracteres"""
+        if event.keysym == "BackSpace": # Si borra, no interrumpimos
+            return
+            
+        texto_original = self.entry_fecha.get()
+        
+        # 1. FILTRAR LETRAS: Nos quedamos solo con números y barras '/'
+        texto_limpio = "".join([c for c in texto_original if c.isdigit() or c == "/"])
+        
+        # 2. LIMITAR A 10 CARACTERES: Si escribe de más, recortamos
+        if len(texto_limpio) > 10:
+            texto_limpio = texto_limpio[:10]
+            
+        # 3. AUTO-INSERTAR BARRAS: Ponemos la barra en las posiciones 2 y 5
+        if len(texto_limpio) == 2 or len(texto_limpio) == 5:
+            if not texto_limpio.endswith("/"):
+                texto_limpio += "/"
+                
+        # 4. ACTUALIZAR CAJA: Si el texto cambió (porque metió una letra), lo corregimos visualmente
+        if texto_original != texto_limpio:
+            self.entry_fecha.delete(0, tk.END)
+            self.entry_fecha.insert(0, texto_limpio)
+
+    def limitar_telefono(self, texto):
+        """Bloquea la caja del teléfono para que solo acepte números y máximo 9"""
+        if texto.isdigit() and len(texto) <= 9:
+            return True
+        elif texto == "":
+            return True
+        return False
+
+    def verificar_9_digitos(self, event):
+        """Cambia el color del texto a verde/cyan cuando llega a 9 dígitos"""
+        # Asegúrate de que aquí usas el nombre correcto de tu variable (entry_tel o entry_telefono)
+        texto = self.entry_tel.get() 
+        if len(texto) == 9:
+            self.entry_tel.config(fg="#00ffcc") 
+        else:
+            self.entry_tel.config(fg="white")

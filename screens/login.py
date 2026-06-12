@@ -44,11 +44,20 @@ class LoginView(tk.Frame):
         self.entry_password.pack(pady=5)
 
         # Creamos el botón de Iniciar Sesión enlazando su comando de activación directamente al presentador
-        btn_login = tk.Button(frame_centro, text="Iniciar Sesión", command=lambda: self.presenter.verificar_login(),
-                              font=("Arial", 11, "bold"), bg="#482673", fg="white",
-                              width=22, bd=0, pady=8, cursor="hand2")
-        # Desplegamos el botón de login dándole márgenes generosos para separarlo visualmente de las entradas
+        #screens/login.py (Modificación interna en btn_login)
+        # ... tu código anterior de las cajas de texto ...
+
+        # Modificamos el comando para extraer los textos y pasárselos limpios al presentador
+        btn_login = tk.Button(frame_centro, text="Iniciar Sesión", 
+                            command=lambda: self.presenter.verificar_login(
+                                self.entry_usuario.get(), 
+                                self.entry_password.get()
+                            ),
+                            font=("Arial", 11, "bold"), bg="#482673", fg="white",
+                            width=22, bd=0, pady=8, cursor="hand2")
         btn_login.pack(pady=20)
+
+        # ... tu código del botón de registro ...
 
         # Creamos tu botón plano con estilo de subrayado que invoca la función de registro en el presentador
         btn_registro = tk.Button(frame_centro, text="¿No tienes cuenta? Regístrate", command=lambda: self.presenter.crear_cuenta(),
@@ -56,3 +65,9 @@ class LoginView(tk.Frame):
                                  bd=0, cursor="hand2", activebackground="#121212", activeforeground="#00ffcc")
         # Empaquetamos el botón de registro al fondo del layout centrado por defecto
         btn_registro.pack()
+    
+    # Añade esto al final de la clase LoginView
+    def mostrar_error(self, titulo, mensaje):
+        """Método que el presentador llamará para indicarle a la vista que muestre un error"""
+        from tkinter import messagebox
+        messagebox.showerror(titulo, mensaje)
