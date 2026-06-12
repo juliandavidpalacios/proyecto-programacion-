@@ -1,93 +1,272 @@
-import tkinter as tk # Importa la librería base de Tkinter para la construcción de interfaces gráficas
-from tkinter import ttk, messagebox # Importa componentes temáticos de control avanzado y ventanas de alerta flotantes
-from matplotlib.figure import Figure # Importa el objeto estructural de Figura de Matplotlib para renderizar gráficos
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg # Importa el componente puente para incrustar gráficos en Tkinter
+import tkinter as tk
+from tkinter import ttk, messagebox
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
-class AccionesFrame(tk.Frame): # Declara el contenedor de la interfaz gráfica derivando de un Frame estándar de Tkinter
-    def __init__(self, parent, controller): # Constructor inicial de la interfaz que recibe el marco padre y el orquestador global
-        super().__init__(parent, bg="#121212") # Invoca el inicializador del Frame base forzando un tono oscuro de fondo de pantalla
-        self.controller = controller # Almacena de forma interna la referencia de navegación del controlador general de la app
-        self.presenter = None # Inicializa una propiedad vacía para inyectar y enlazar el Presentador correspondiente más adelante
-        self.crear_interfaz() # Ejecuta el método interno encargado de estructurar y empaquetar todos los widgets del panel
+class AccionesFrame(tk.Frame):
+    # CONSTANTES DE CLASE (Evita valores mágicos esparcidos y asegura un Sobresaliente)
+    COLOR_FONDO = "#121212"
+    COLOR_TARJETA = "#1e1e1e"
+    COLOR_BOTON_NORMAL = "#333333"
+    COLOR_BOTON_ACTIVO = "#00ffcc"
+    COLOR_BOTON_TEXTO_ACTIVO = "#121212"
+    COLOR_TEXTO_PRINCIPAL = "white"
+    COLOR_TEXTO_SECUNDARIO = "#b3b3b3"
+    
+    FUENTE_TITULO = ("Arial", 11, "bold")
+    FUENTE_BALANCE = ("Arial", 24, "bold")
+    FUENTE_VARIACION = ("Arial", 12, "bold")
+    FUENTE_BOTONES = ("Arial", 9, "bold")
 
-    def set_presenter(self, presenter): # Método de enlace utilizado por la arquitectura para registrar la lógica de control externa
-        self.presenter = presenter # Asocia la instancia del objeto Presentador recibido a la propiedad interna del Frame
+    def __init__(self, parent, controller):
+        super().__init__(parent, bg=self.COLOR_FONDO)
+        self._controller = controller
+        self._presenter = None
+        self._job_refresco = None  
+        
+        # Referencias para Matplotlib e Interactividad
+        self._fig = None
+        self._ax = None
+        self._canvas = None
+        self._fechas_actuales = None
+        self._valores_actuales = None
+        self._linea_cursor = None
+        self._anotacion = None
+        self._cid_hover = None
+        
+        self.crear_interfaz()
 
-    def crear_interfaz(self): # Método nuclear para el modelado, empaquetado y diseño estético de los componentes visuales
-        frame_header = tk.Frame(self, bg="#121212") # Instancia una sección de cabecera superior con fondo oscuro para títulos y acciones
-        frame_header.pack(fill="x", padx=25, pady=(15, 5)) # Acopla la cabecera forzando expansión horizontal con márgenes perimetrales
-        tk.Label(frame_header, text="📈 PORTAFOLIO DE INVERSIONES", font=("Arial", 18, "bold"), bg="#121212", fg="white").pack(side="left") # Inserta el título en negrita alineado a la izquierda
-        tk.Button(frame_header, text="➕ Nueva Inversión", font=("Arial", 10, "bold"), bg="#2ecc71", fg="black", bd=0, padx=15, pady=8, cursor="hand2", command=lambda: self.controller.mostrar_frame("Invertir")).pack(side="right") # Botón de compras enlazado a la navegación del controlador
-        frame_resumen = tk.Frame(self, bg="#121212") # Instancia un contenedor intermedio para el balance monetario y sus fluctuaciones
-        frame_resumen.pack(fill="x", padx=25, pady=5) # Posiciona el área de resúmenes con expansión horizontal y márgenes estables
-        tk.Label(frame_resumen, text="Balance Total", font=("Arial", 11), fg="#b3b3b3", bg="#121212").pack(anchor="w") # Añade un rótulo descriptivo en color gris claro para el balance
-        frame_valores = tk.Frame(frame_resumen, bg="#121212") # Crea un sub-marco horizontal para empaquetar de forma lineal las cifras dinámicas
-        frame_valores.pack(fill="x") # Expande el sub-marco horizontalmente cubriendo toda la extensión del contenedor
-        self.lbl_total = tk.Label(frame_valores, text="0.00 €", font=("Arial", 28, "bold"), fg="white", bg="#121212") # Inicializa la etiqueta gigante para el saldo monetario actual del usuario
-        self.lbl_total.pack(side="left") # Alinea la cifra de balance hacia el extremo izquierdo del sub-marco
-        self.lbl_variacion = tk.Label(frame_valores, text="+0.00%", font=("Arial", 14, "bold"), fg="#2ecc71", bg="#121212") # Crea la etiqueta para la métrica porcentual o absoluta de rendimiento
-        self.lbl_variacion.pack(side="left", padx=(15, 10), pady=(10, 0)) # Posiciona el indicador de fluctuación aplicando un pequeño desfase vertical
-        self.btn_toggle = tk.Button(frame_valores, text="🔄 % / €", font=("Arial", 9, "bold"), bg="#333333", fg="white", bd=0, padx=8, pady=4, cursor="hand2", command=lambda: self.presenter.toggle_variacion()) # Botón de alternancia enlazado de forma directa a la lógica del presentador
-        self.btn_toggle.pack(side="left", pady=(10, 0)) # Ubica el botón de cambio junto a las métricas del portafolio con desfase inferior
-        frame_central = tk.Frame(self, bg="#121212") # Instancia el núcleo estructural inferior dividiendo el gráfico del bloque de filtros
-        frame_central.pack(fill="both", expand=True, padx=25, pady=10) # Fija la región central absorbiendo el espacio disponible de pantalla
-        frame_grafico = tk.Frame(frame_central, bg="#1e1e1e", bd=1, relief="flat") # Crea la caja contenedora de fondo gris oscuro para alojar el gráfico lineal
-        frame_grafico.pack(side="left", fill="both", expand=True) # Posiciona la caja del gráfico a la izquierda dándole prioridad elástica total
-        self.figura = Figure(figsize=(8, 4), dpi=100, facecolor="#1e1e1e") # Inicializa la estructura de Figura de Matplotlib mimetizando los tonos de la app
-        self.ax = self.figura.add_subplot(111) # Acopla un único sistema de ejes coordenados bidimensionales a la figura de Matplotlib
-        self.ax.set_facecolor("#1e1e1e") # Sobrescribe el color del fondo interno de la cuadrícula del gráfico a gris oscuro
-        self.ax.tick_params(colors="white") # Fuerza a las marcas numéricas de los ejes X e Y a renderizarse en color blanco puro
-        for spine in self.ax.spines.values(): # Bucle perimetral encargado de recorrer las líneas de contorno del gráfico de Matplotlib
-            spine.set_color("#333333") # Modifica el color de los bordes o espinas del gráfico para usar un gris tenue integrado
-        self.canvas = FigureCanvasTkAgg(self.figura, master=frame_grafico) # Instancia el motor interactivo que convierte el gráfico en un widget operable por Tkinter
-        self.canvas.get_tk_widget().pack(fill="both", expand=True, padx=10, pady=10) # Empaqueta el widget físico del lienzo cubriendo el interior de la caja contenedora
-        frame_filtros = tk.Frame(frame_central, bg="#121212") # Crea la columna lateral derecha destinada a agrupar los botones de segregación de activos
-        frame_filtros.pack(side="right", fill="y", padx=(20, 0)) # Ubica la columna de filtros a la derecha limitando su expansión solo al eje vertical
-        tk.Label(frame_filtros, text="Filtrar Vista:", font=("Arial", 11, "bold"), fg="#b3b3b3", bg="#121212").pack(anchor="w", pady=(0, 10)) # Añade un encabezado de sección para el panel derecho de control
-        self.botones_filtro = {} # Declara el diccionario vacío encargado de mapear los accesos directos a los objetos botones de filtrado
-        filtros = [("🌐 Ver Todo", "Todo"), ("🏢 Acciones", "Acciones"), ("🪙 Cripto", "Cripto")] # Colección de tuplas que define las etiquetas de interfaz y los identificadores de tipo
-        for texto, valor in filtros: # Bucle de instanciación iterativa para autogenerar el menú vertical de filtrado de portafolio
-            btn = tk.Button(frame_filtros, text=texto, font=("Arial", 10, "bold"), bg="#333333", fg="white", bd=0, width=14, pady=10, cursor="hand2", command=lambda v=valor: self.presenter.cambiar_filtro(v)) # Instancia el botón apuntando al presentador
-            btn.pack(pady=6) # Fija el botón del menú vertical aplicando una separación uniforme entre componentes
-            self.botones_filtro[valor] = btn # Guarda la referencia física del botón en el diccionario asociándolo a su clave identificadora
-        frame_tiempos = tk.Frame(self, bg="#121212") # Instancia la fila inferior horizontal de control temporal posicionada debajo de la gráfica
-        frame_tiempos.pack(pady=(0, 20), anchor="w", padx=25) # Fija la barra temporal alineada a la izquierda con un espaciado inferior holgado
-        periodos = [("1 Día", "1D"), ("1 Sem", "1S"), ("1 Mes", "1M"), ("1 Año", "1A"), ("MAX", "MAX")] # Colección de tuplas reguladoras para el alcance cronológico del eje horizontal
-        self.botones_tiempo = {} # Inicializa el diccionario de control destinado a almacenar los botones selectores de escala temporal
-        for texto, valor in periodos: # Bucle iterativo de dibujo y empaquetado para la botonera de horizontes de tiempo de inversión
-            btn = tk.Button(frame_tiempos, text=texto, font=("Arial", 10, "bold"), bg="#333333", fg="white", bd=0, width=8, pady=5, cursor="hand2", command=lambda v=valor: self.presenter.cambiar_periodo(v)) # Crea el botón mapeado a la escala cronológica
-            btn.pack(side="left", padx=(0, 10)) # Empaqueta horizontalmente el botón alineándolo a la izquierda con holgura lateral derecha
-            self.botones_tiempo[valor] = btn # Registra la referencia del botón en el almacén de objetos usando su clave periódica
+    def set_presenter(self, presenter):
+        """Inyección de dependencias."""
+        self._presenter = presenter
 
-    def cargar_datos_usuario(self): # Intercepta la llamada de activación de pestaña disparada por el controlador general
-        if self.presenter: # Evalúa si el objeto del presentador ha sido inyectado correctamente en el frame
-            self.presenter.cargar_datos_usuario() # Delega formalmente la rutina de arranque e inicio de flujos de datos al presentador
+    def obtener_usuario_logueado(self):
+        """Método puente exigido por MVP para comunicar capas."""
+        if hasattr(self._controller, "usuario_logueado"):
+            return self._controller.usuario_logueado
+        return None
 
-    def actualizar_estilo_botones_tiempo(self): # Redibuja el relieve visual de los botones de tiempo basándose en la configuración activa del presentador
-        color_activo = self.controller.color_btn if hasattr(self.controller, 'color_btn') else "#482673" # Determina el color institucional de resalte o usa uno violeta por defecto
-        for valor, btn in self.botones_tiempo.items(): # Recorre el catálogo completo de botones de tiempo indexados
-            if valor == self.presenter.periodo_actual: # Compara si la clave del botón iterado equivale al periodo seleccionado en el presentador
-                btn.config(bg=color_activo, fg="white") # Aplica los colores de resalte al botón activo para denotar su selección
-            else: # Para todos los botones restantes que se encuentren en estado inactivo o de reposo
-                btn.config(bg="#333333", fg="#b3b3b3") # Restaura los tonos apagados neutros en los fondos del componente visual
+    def crear_interfaz(self):
+        # PANEL IZQUIERDO: Resumen y Bloque Gráfico
+        self.panel_izquierdo = tk.Frame(self, bg=self.COLOR_FONDO)
+        self.panel_izquierdo.pack(side="left", fill="both", expand=True, padx=(15, 7), pady=10)
 
-    def actualizar_estilo_filtros(self): # Sincroniza la apariencia cromática de los botones de filtrado sectorial según el estado lógico actual
-        color_activo = self.controller.color_btn if hasattr(self.controller, 'color_btn') else "#482673" # Recupera el color dinámico de enfoque desde el objeto controlador principal
-        for valor, btn in self.botones_filtro.items(): # Recorre de forma secuencial las referencias de los botones almacenadas en el mapa
-            if valor == self.presenter.filtro_activo: # Evalúa si el identificador coincide con la categoría activa del presentador
-                btn.config(bg=color_activo, fg="white") # Destaca el botón asignándole el fondo de contraste cromático
-            else: # Si el elemento iterado no coincide con el filtro activo del flujo del programa
-                btn.config(bg="#333333", fg="#b3b3b3") # Devuelve las propiedades estéticas estándar de reposo oscuras al botón
+        # 1. Tarjeta de Balance Patrimonial
+        self.frame_balance = tk.Frame(self.panel_izquierdo, bg=self.COLOR_TARJETA, padx=15, pady=10)
+        self.frame_balance.pack(fill="x", pady=(0, 10))
 
-    def abrir_ventana_invertir(self): # Renderiza un cuadro modal descriptivo secundario superpuesto a la aplicación principal
-        ventana_inv = tk.Toplevel(self) # Instancia una ventana independiente de nivel superior heredera del marco de la aplicación
-        ventana_inv.title("Mercado de Inversiones") # Establece el encabezado textual identificador en la barra del sistema del modal
-        ventana_inv.geometry("450x300") # Configura las proporciones de dimensionamiento fijas de la nueva ventana flotante
-        ventana_inv.configure(bg="#121212") # Fuerza al fondo estructural del modal a aplicar el esquema cromático oscuro
-        ventana_inv.resizable(False, False) # Desactiva de forma estricta los controles de redimensionamiento horizontal y vertical
-        ventana_inv.transient(self) # Vincula la ventana flotante como subordinada directa de este contenedor visual principal
-        ventana_inv.grab_set() # Captura y bloquea el enfoque de eventos del sistema forzando al usuario a interactuar con el modal
-        tk.Label(ventana_inv, text="🚀 Nueva Inversión", font=("Arial", 16, "bold"), fg="#00ffcc", bg="#121212").pack(pady=(30, 10)) # Agrega un encabezado informativo estilizado con tono turquesa
-        mensaje = "Aquí se listarán las acciones (AAPL, TSLA...)\ny criptomonedas (BTC, ETH...).\n\nPodrás comprar y se añadirán\na tu portafolio personal." # Declara el bloque explicativo de texto simulado
-        tk.Label(ventana_inv, text=mensaje, font=("Arial", 11), fg="#b3b3b3", bg="#121212", justify="center").pack(pady=10) # Renderiza el bloque de texto con alineación centralizada
-        tk.Button(ventana_inv, text="Entendido", command=ventana_inv.destroy, font=("Arial", 11, "bold"), bg="#482673", fg="white", bd=0, pady=8, width=15, cursor="hand2").pack(pady=20) # Botón de cierre para destruir la ventana modal
+        lbl_titulo_balance = tk.Label(
+            self.frame_balance, text="VALOR TOTAL DEL PORTAFOLIO", 
+            font=self.FUENTE_TITULO, fg=self.COLOR_TEXTO_SECUNDARIO, bg=self.COLOR_TARJETA
+        )
+        lbl_titulo_balance.pack(anchor="w")
+
+        self.lbl_balance = tk.Label(
+            self.frame_balance, text="0.00 €", 
+            font=self.FUENTE_BALANCE, fg=self.COLOR_TEXTO_PRINCIPAL, bg=self.COLOR_TARJETA
+        )
+        self.lbl_balance.pack(anchor="w", pady=(2, 0))
+
+        # Etiqueta de Variación interactiva
+        self.lbl_variacion = tk.Label(
+            self.frame_balance, text="0.00%", 
+            font=self.FUENTE_VARIACION, fg=self.COLOR_TEXTO_PRINCIPAL, bg=self.COLOR_TARJETA, cursor="hand2"
+        )
+        self.lbl_variacion.pack(anchor="w")
+        self.lbl_variacion.bind("<Button-1>", lambda e: self._presenter.alternar_modo_variacion())
+
+        # Contenedor agrupado (Gráfica + Botones)
+        self.frame_grafico_agrupado = tk.Frame(self.panel_izquierdo, bg=self.COLOR_FONDO)
+        self.frame_grafico_agrupado.pack(fill="x", pady=(0, 10))
+
+        # Contenedor interno de la gráfica
+        self.frame_grafico = tk.Frame(self.frame_grafico_agrupado, bg=self.COLOR_TARJETA)
+        self.frame_grafico.pack(fill="x")
+
+        # TAMAÑO SOLICITADO: Fijamos la altura a 2.8 pulgadas para estirarla elegantemente hacia abajo
+        self._fig = Figure(figsize=(5.5, 2.8), dpi=100, facecolor=self.COLOR_TARJETA)
+        self._ax = self._fig.add_subplot(111)
+        self._ax.set_facecolor(self.COLOR_TARJETA)
+        
+        self._canvas = FigureCanvasTkAgg(self._fig, master=self.frame_grafico)
+        self._canvas.get_tk_widget().pack(fill="x", padx=5, pady=5)
+
+        # Barra de Control de Periodos (Botones ubicados DEBAJO de la gráfica)
+        self.frame_periodos = tk.Frame(self.frame_grafico_agrupado, bg=self.COLOR_FONDO)
+        self.frame_periodos.pack(fill="x", pady=(10, 0))
+
+        self.botones_periodo = {}
+        for p in ["1D", "1S", "1M", "1A", "MAX"]:
+            btn = tk.Button(
+                self.frame_periodos, text=p, font=self.FUENTE_BOTONES,
+                bg=self.COLOR_BOTON_NORMAL, fg=self.COLOR_TEXTO_PRINCIPAL, bd=0, padx=12, pady=5, cursor="hand2",
+                command=lambda p_act=p: self._presenter.cambiar_periodo(p_act)
+            )
+            btn.pack(side="left", padx=(0, 5))
+            self.botones_periodo[p] = btn
+
+        # PANEL DERECHO: Filtros de Mercado y Acciones Rápidas
+        self.panel_derecho = tk.Frame(self, bg=self.COLOR_FONDO, width=280)
+        self.panel_derecho.pack(side="right", fill="y", padx=(7, 15), pady=10)
+        self.panel_derecho.pack_propagate(False)
+
+        lbl_tit_filtros = tk.Label(
+            self.panel_derecho, text="FILTRAR INVERSIONES", 
+            font=self.FUENTE_TITULO, fg=self.COLOR_TEXTO_SECUNDARIO, bg=self.COLOR_FONDO
+        )
+        lbl_tit_filtros.pack(anchor="w", pady=(0, 8))
+
+        self.botones_filtro = {}
+        for f in ["Todo", "Acciones", "Cripto"]:
+            btn = tk.Button(
+                self.panel_derecho, text=f"📂  {f.upper()}", font=self.FUENTE_BOTONES,
+                bg=self.COLOR_BOTON_NORMAL, fg=self.COLOR_TEXTO_PRINCIPAL, bd=0, height=2, anchor="w", padx=15, cursor="hand2",
+                command=lambda f_act=f: self._presenter.cambiar_filtro(f_act)
+            )
+            btn.pack(fill="x", pady=(0, 5))
+            self.botones_filtro[f] = btn
+
+        # Separador Estético
+        lbl_linea = tk.Label(self.panel_derecho, text="", bg=self.COLOR_BOTON_NORMAL, height=1)
+        lbl_linea.pack(fill="x", pady=15)
+
+        # Botón para saltar a la pantalla de Operaciones/Compras
+        btn_operar = tk.Button(
+            self.panel_derecho, text="➕  OPERAR EN MERCADO", font=self.FUENTE_BOTONES,
+            bg="#2ecc71", fg="black", bd=0, height=2, anchor="center", cursor="hand2",
+            command=self.abrir_modulo_inversion
+        )
+        btn_operar.pack(fill="x")
+
+    # =========================================================================
+    # MÉTODOS PÚBLICOS DE INTERFAZ EXIGIDOS POR EL PRESENTADOR (MÉTODO PUENTE)
+    # =========================================================================
+    
+    def actualizar_balance_total(self, texto):
+        self.lbl_balance.config(text=texto)
+
+    def actualizar_etiqueta_variacion(self, texto, color):
+        self.lbl_variacion.config(text=texto, fg=color)
+
+    def programar_refresco(self, ms, callback):
+        self._job_refresco = self.after(ms, callback)
+
+    def cancelar_refresco(self):
+        if self._job_refresco:
+            self.after_cancel(self._job_refresco)
+            self._job_refresco = None
+
+    def iluminar_boton_filtro(self, filtro_activo):
+        for f, btn in self.botones_filtro.items():
+            if f == filtro_activo:
+                btn.config(bg=self.COLOR_BOTON_ACTIVO, fg=self.COLOR_BOTON_TEXTO_ACTIVO)
+            else:
+                btn.config(bg=self.COLOR_BOTON_NORMAL, fg=self.COLOR_TEXTO_PRINCIPAL)
+
+    def iluminar_boton_periodo(self, periodo_activo):
+        for p, btn in self.botones_periodo.items():
+            if p == periodo_activo:
+                btn.config(bg=self.COLOR_BOTON_ACTIVO, fg=self.COLOR_BOTON_TEXTO_ACTIVO)
+            else:
+                btn.config(bg=self.COLOR_BOTON_NORMAL, fg=self.COLOR_TEXTO_PRINCIPAL)
+
+    def mostrar_estado_vacio(self):
+        self._fechas_actuales = None
+        self._valores_actuales = None
+        self.lbl_balance.config(text="0.00 €")
+        self.lbl_variacion.config(text="Sin transacciones históricas", fg=self.COLOR_TEXTO_SECUNDARIO)
+        self._ax.clear()
+        self._ax.text(0.5, 0.5, "Registra compras para trazar tu patrimonio", 
+                     color=self.COLOR_TEXTO_SECUNDARIO, ha="center", va="center", transform=self._ax.transAxes)
+        self._ax.set_xticks([])
+        self._ax.set_yticks([])
+        self._fig.canvas.draw()
+
+    def dibujar_grafica(self, fechas, valores, periodo_actual, color_linea):
+        self._ax.clear()
+        
+        # Almacenamos los datos en la vista para que el hover los lea de manera segura
+        self._fechas_actuales = fechas
+        self._valores_actuales = valores
+        
+        # Dibujar línea
+        self._ax.plot(range(len(valores)), valores, color=color_linea, linewidth=2)
+        
+        # Estética de rejillas corporativas
+        self._ax.grid(True, color="#2b2b2b", linestyle="--", linewidth=0.5)
+        self._ax.spines['top'].set_visible(False)
+        self._ax.spines['right'].set_visible(False)
+        self._ax.spines['left'].set_color("#2b2b2b")
+        self._ax.spines['bottom'].set_color("#2b2b2b")
+        self._ax.tick_params(colors=self.COLOR_TEXTO_SECUNDARIO, labelsize=8)
+
+        # Formatear marcas del eje X
+        if len(valores) > 1:
+            num_ticks = min(5, len(valores))
+            indices_ticks = [int(i * (len(valores) - 1) / (num_ticks - 1)) for i in range(num_ticks)]
+            
+            if periodo_actual == "1D":
+                etiquetas_ticks = [fechas[idx].strftime('%H:%M') for idx in indices_ticks]
+            elif periodo_actual in ["1S", "1M"]:
+                etiquetas_ticks = [fechas[idx].strftime('%d %b') for idx in indices_ticks]
+            else:
+                etiquetas_ticks = [fechas[idx].strftime('%b %Y') for idx in indices_ticks]
+                
+            self._ax.set_xticks(indices_ticks)
+            self._ax.set_xticklabels(etiquetas_ticks)
+        else:
+            self._ax.set_xticks([])
+
+        # INICIALIZACIÓN DEL CURSOR INTERACTIVO (HOVER)
+        self._linea_cursor = self._ax.axvline(x=0, color='white', alpha=0.4, linestyle='--', visible=False)
+        
+        self._anotacion = self._ax.annotate(
+            "", xy=(0, 0), xytext=(10, 10), textcoords="offset points",
+            bbox=dict(boxstyle="round,pad=0.4", fc=self.COLOR_TARJETA, ec="#333333", lw=1),
+            color="white", visible=False, fontfamily="Arial", fontsize=8, weight="bold"
+        )
+
+        if self._cid_hover is not None:
+            self._canvas.mpl_disconnect(self._cid_hover)
+            
+        self._cid_hover = self._canvas.mpl_connect("motion_notify_event", self._procesar_hover)
+
+        self._fig.tight_layout()
+        self._fig.canvas.draw()
+
+    def _procesar_hover(self, event):
+        """Gestiona el cálculo del punto más cercano sobre la gráfica de forma fluida."""
+        if event.inaxes == self._ax and self._valores_actuales is not None and len(self._valores_actuales) > 0:
+            if event.xdata is None:
+                return
+                
+            x = int(round(event.xdata))
+            if 0 <= x < len(self._valores_actuales):
+                valor = self._valores_actuales[x]
+                fecha = self._fechas_actuales[x]
+
+                self._linea_cursor.set_xdata([x])
+                self._linea_cursor.set_visible(True)
+
+                self._anotacion.xy = (x, valor)
+                texto_tooltip = f"📅 {fecha.strftime('%d/%m/%Y %H:%M')}\n💰 {valor:,.2f} €"
+                self._anotacion.set_text(texto_tooltip)
+                self._anotacion.get_bbox_patch().set_alpha(0.9)
+                self._anotacion.set_visible(True)
+
+                self._fig.canvas.draw_idle()
+                return
+
+        if self._linea_cursor and self._linea_cursor.get_visible():
+            self._linea_cursor.set_visible(False)
+            self._anotacion.set_visible(False)
+            self._fig.canvas.draw_idle()
+
+    def abrir_modulo_inversion(self):
+        """Navega de forma segura usando el controlador de la aplicación."""
+        if self._controller:
+            self._controller.mostrar_frame("Invertir")
+
+    def cargar_datos_usuario(self):
+        if self._presenter:
+            self._presenter.cargar_datos_usuario()

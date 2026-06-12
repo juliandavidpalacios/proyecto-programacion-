@@ -16,8 +16,10 @@ class MainView(tk.Tk):
         super().__init__()
         # Definimos el título corporativo de la barra superior de la ventana
         self.title("Tracker Financiero Modular - Banco Digital")
-        # Establecemos las dimensiones exactas solicitadas (ancho x alto)
-        self.geometry("900x500")
+        self.geometry("1200x750")
+        self.minsize(1200, 750)
+        self.maxsize(1200, 750)
+
         # Configuramos el color de fondo oscuro global de la ventana
         self.configure(bg="#121212")
 
