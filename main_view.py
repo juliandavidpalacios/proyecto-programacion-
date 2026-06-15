@@ -12,15 +12,20 @@ from screens.invertir import InvertirView
 class MainView(tk.Tk):
     # Constructor de la ventana gráfica
     def __init__(self):
+        # CLAVE DEL PROBLEMA DE TAMAÑO: declaramos el proceso "DPI-aware" ANTES de
+        # crear la ventana. Sin esto, Windows (con zoom 125 %/150 %) renderiza la
+        # app a 96 dpi y luego ESTIRA por software toda la ventana, dejándola
+        # borrosa y haciendo que los widgets se salgan de la pantalla. Al ser
+        # DPI-aware, Tkinter recibe píxeles reales y todo encaja.
+        self._activar_dpi_aware()
+
         # Iniciamos el constructor padre de la ventana Tkinter
         super().__init__()
         # Definimos el título corporativo de la barra superior de la ventana
         self.title("Tracker Financiero Modular - Banco Digital")
 
-        # Neutralizamos el escalado por DPI de Windows (125 % / 150 %), que es lo
-        # que hacía que los widgets se renderizaran gigantes y se salieran de la
-        # pantalla. 96/72 = 1.333 reproduce una pantalla estándar al 100 %, que es
-        # el tamaño para el que se diseñó la interfaz.
+        # Mantenemos la densidad de la interfaz tal como se diseñó (pantalla al
+        # 100 %). 96/72 = 1.333 es el escalado estándar de fuentes en puntos.
         try:
             self.tk.call("tk", "scaling", 96.0 / 72.0)
         except Exception:
@@ -50,6 +55,24 @@ class MainView(tk.Tk):
         self.contenedor_auth = tk.Frame(self, bg="#121212")
         # Empaquetamos este contenedor llenando todo el espacio disponible
         self.contenedor_auth.pack(fill="both", expand=True)
+
+    # Hace que el proceso respete el DPI real de la pantalla (solo Windows).
+    # Debe ejecutarse antes de crear cualquier ventana Tk.
+    @staticmethod
+    def _activar_dpi_aware():
+        import sys
+        if sys.platform != "win32":
+            return
+        try:
+            from ctypes import windll
+            # 1 = "System DPI aware" (compatible con Windows 8.1+).
+            windll.shcore.SetProcessDpiAwareness(1)
+        except Exception:
+            try:
+                # Respaldo para versiones antiguas de Windows.
+                windll.user32.SetProcessDPIAware()
+            except Exception:
+                pass
 
     # Método para inyectar el controlador (presentador) en la vista
     def set_presenter(self, presenter):
