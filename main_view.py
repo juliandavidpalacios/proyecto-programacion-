@@ -16,9 +16,25 @@ class MainView(tk.Tk):
         super().__init__()
         # Definimos el título corporativo de la barra superior de la ventana
         self.title("Tracker Financiero Modular - Banco Digital")
-        self.geometry("1200x750")
-        self.minsize(1200, 750)
-        self.maxsize(1200, 750)
+
+        # Neutralizamos el escalado por DPI de Windows (125 % / 150 %), que es lo
+        # que hacía que los widgets se renderizaran gigantes y se salieran de la
+        # pantalla. 96/72 = 1.333 reproduce una pantalla estándar al 100 %, que es
+        # el tamaño para el que se diseñó la interfaz.
+        try:
+            self.tk.call("tk", "scaling", 96.0 / 72.0)
+        except Exception:
+            pass
+
+        # Ventana redimensionable (ya NO bloqueada con maxsize) que arranca
+        # maximizada para aprovechar toda la pantalla disponible.
+        self.geometry("1280x720")
+        self.minsize(1024, 640)
+        self.resizable(True, True)
+        try:
+            self.state("zoomed")  # En Windows: abre la ventana maximizada.
+        except Exception:
+            pass
 
         # Configuramos el color de fondo oscuro global de la ventana
         self.configure(bg="#121212")
