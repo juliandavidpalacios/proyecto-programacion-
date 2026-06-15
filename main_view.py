@@ -31,15 +31,12 @@ class MainView(tk.Tk):
         except Exception:
             pass
 
-        # Ventana redimensionable (ya NO bloqueada con maxsize) que arranca
-        # maximizada para aprovechar toda la pantalla disponible.
-        self.geometry("1280x720")
+        # Ventana redimensionable, con un tamaño ajustado al diseño de las
+        # pantallas (NO maximizada: maximizar dejaba el contenido pequeño en la
+        # esquina con mucho espacio negro vacío). El usuario puede agrandarla.
         self.minsize(1024, 640)
         self.resizable(True, True)
-        try:
-            self.state("zoomed")  # En Windows: abre la ventana maximizada.
-        except Exception:
-            pass
+        self._centrar_ventana(1280, 800)
 
         # Configuramos el color de fondo oscuro global de la ventana
         self.configure(bg="#121212")
@@ -55,6 +52,18 @@ class MainView(tk.Tk):
         self.contenedor_auth = tk.Frame(self, bg="#121212")
         # Empaquetamos este contenedor llenando todo el espacio disponible
         self.contenedor_auth.pack(fill="both", expand=True)
+
+    # Coloca la ventana con el tamaño indicado y centrada en la pantalla.
+    def _centrar_ventana(self, ancho, alto):
+        self.update_idletasks()
+        sw = self.winfo_screenwidth()
+        sh = self.winfo_screenheight()
+        # Si la pantalla es más pequeña que el tamaño pedido, nos adaptamos a ella.
+        ancho = min(ancho, sw)
+        alto = min(alto, sh - 60)  # margen para la barra de tareas
+        x = max(0, (sw - ancho) // 2)
+        y = max(0, (sh - alto) // 3)
+        self.geometry(f"{ancho}x{alto}+{x}+{y}")
 
     # Hace que el proceso respete el DPI real de la pantalla (solo Windows).
     # Debe ejecutarse antes de crear cualquier ventana Tk.
@@ -173,6 +182,10 @@ class MainView(tk.Tk):
         self.contenedor_principal = tk.Frame(self, bg="#121212")
         # Lo empaquetamos a la derecha permitiéndole expandirse y llenar el resto de la ventana
         self.contenedor_principal.pack(side="right", expand=True, fill="both")
+        # Damos peso a la celda (0,0) del grid para que las pantallas se ESTIREN
+        # y llenen todo el contenedor en lugar de quedarse pequeñas en la esquina.
+        self.contenedor_principal.grid_rowconfigure(0, weight=1)
+        self.contenedor_principal.grid_columnconfigure(0, weight=1)
 
     # Método visual que dibuja e inserta los botones en el panel lateral
     def crear_menu_botones(self, color_btn):
