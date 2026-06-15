@@ -100,6 +100,33 @@ package "domain (Modelo de Negocio puro)" {
     -fechaHora: DateTime
     -precioCierre: Float
   }
+
+  ' --- Subsistema Expertos (compras institucionales) ---
+  class InversorInstitucional {
+    -nombre: String
+    -compras: List<CompraInstitucional>
+    +agregarCompra(c: CompraInstitucional)
+    +obtenerValorTotalComprado(): Float
+  }
+
+  class CompraInstitucional {
+    -inversor: String
+    -simbolo: String
+    -empresa: String
+    -acciones: Float
+    -valor: Float
+    -variacionPct: Float
+    -fechaReporte: String
+    +esCompra(): bool
+  }
+
+  interface ProveedorExpertos {
+    +obtenerComprasRecientes(simbolos): List<CompraInstitucional>
+  }
+
+  class YahooExpertosProveedor {
+    +obtenerComprasRecientes(simbolos): List<CompraInstitucional>
+  }
 }
 
 ' --- Relaciones del dominio ---
@@ -116,6 +143,10 @@ Accion "1" *-- "*" CotizacionHistorica : mantiene >
 YahooFinanceProveedor ..|> ProveedorAPI : implementa
 Transaccion ..> TipoTransaccion
 Accion ..> IntervaloTiempo
+
+InversorInstitucional "1" *-- "*" CompraInstitucional : agrupa >
+YahooExpertosProveedor ..|> ProveedorExpertos : implementa
+YahooExpertosProveedor ..> CompraInstitucional : crea
 
 ' =====================================================================
 '  ARQUITECTURA MVP (cómo se usa el dominio)
@@ -143,8 +174,10 @@ Presentadores ..> Modelos : solicita datos / reglas
 Modelos ..> UsuarioRepository : usa
 UsuarioRepository ..> Usuario : crea
 Modelos ..> Portafolio : construye y consulta
+Modelos ..> CuentaBancaria : reproduce saldos
 Modelos ..> Transaccion : crea
 Modelos ..> YahooFinanceProveedor : inyecta como ProveedorAPI
+Modelos ..> YahooExpertosProveedor : inyecta como ProveedorExpertos
 
 MainView --> MainPresenter
 MainPresenter --> Modelos

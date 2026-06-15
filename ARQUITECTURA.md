@@ -28,7 +28,7 @@ domain/       DOMINIO       -> objetos de negocio puros (el diagrama)
 | Clase del diagrama | Archivo | Usada por |
 |--------------------|---------|-----------|
 | `Usuario` | `domain/usuario.py` | `UsuarioRepository` / `LoginModel` |
-| `CuentaBancaria` | `domain/cuenta_bancaria.py` | `GastosModel`, agregado de `Usuario` |
+| `CuentaBancaria` | `domain/cuenta_bancaria.py` | `AhorrosModel.calcular_resumen`, agregado de `Usuario` |
 | `Portafolio` | `domain/portafolio.py` | `AhorrosModel` |
 | `Posicion` | `domain/posicion.py` | `Portafolio` |
 | `Accion` | `domain/accion.py` | `Posicion`, `Portafolio` |
@@ -36,7 +36,21 @@ domain/       DOMINIO       -> objetos de negocio puros (el diagrama)
 | `Transaccion` | `domain/transaccion.py` | `InvertirModel` |
 | `ProveedorAPI` (interfaz) | `domain/proveedor_api.py` | `Portafolio`, modelos |
 | `YahooFinanceProveedor` | `domain/yahoo_finance.py` | implementa `ProveedorAPI` |
+| `CompraInstitucional` | `domain/compra_institucional.py` | `ExpertosModel` |
+| `InversorInstitucional` | `domain/inversor_institucional.py` | `ExpertosModel` |
+| `ProveedorExpertos` (interfaz) | `domain/proveedor_expertos.py` | `ExpertosModel` |
+| `YahooExpertosProveedor` | `domain/yahoo_expertos.py` | implementa `ProveedorExpertos` |
 | `TipoTransaccion`, `IntervaloTiempo` | `domain/enums.py` | dominio |
+
+### Pantalla de Expertos
+
+`screens/expertos.py` + `presenters/expertos_p.py` + `Models/expertos_m.py`
+muestran las acciones que los grandes inversores institucionales (Berkshire,
+Vanguard, BlackRock…) han **comprado** (aumentado en cartera) durante el último
+trimestre. El `ExpertosModel` no sabe de dónde salen los datos: depende de la
+interfaz `ProveedorExpertos`, implementada por `YahooExpertosProveedor`
+(Adapter sobre `yfinance.Ticker.institutional_holders`, con datos de ejemplo de
+respaldo si no hay conexión). Sustituye a la antigua pantalla de Gastos.
 
 ## Reglas de oro (para mantener MVP estricto)
 

@@ -22,6 +22,10 @@ from domain.portafolio import Portafolio
 from domain.transaccion import Transaccion
 from domain.cuenta_bancaria import CuentaBancaria
 from domain.usuario import Usuario
+from domain.compra_institucional import CompraInstitucional
+from domain.inversor_institucional import InversorInstitucional
+from domain.proveedor_expertos import ProveedorExpertos
+from domain.yahoo_expertos import YahooExpertosProveedor
 
 __all__ = [
     "TipoTransaccion",
@@ -35,4 +39,8 @@ __all__ = [
     "Transaccion",
     "CuentaBancaria",
     "Usuario",
+    "CompraInstitucional",
+    "InversorInstitucional",
+    "ProveedorExpertos",
+    "YahooExpertosProveedor",
 ]

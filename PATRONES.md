@@ -55,6 +55,10 @@ portafolio = Portafolio(proveedor=YahooFinanceProveedor())
 
 Así se puede sustituir por un proveedor simulado en tests sin tocar el dominio.
 
+El **mismo patrón** se repite en la pantalla de Expertos con la interfaz
+`ProveedorExpertos` (en `domain/proveedor_expertos.py`): `ExpertosModel` depende
+de la abstracción y recibe el proveedor por constructor.
+
 ---
 
 ## 4. Adapter — `YahooFinanceProveedor`
@@ -67,6 +71,10 @@ El dominio no debería conocer pandas.
 *adapta* esa interfaz externa al contrato limpio `ProveedorAPI`
 (`obtener_precio_actual`, `obtener_serie_de_tiempo`), traduciendo símbolos y
 DataFrames a `float` y a objetos `CotizacionHistorica`.
+
+`YahooExpertosProveedor` (en `domain/yahoo_expertos.py`) aplica el mismo patrón:
+adapta `yfinance.Ticker.institutional_holders` a objetos `CompraInstitucional`
+para la pantalla de Expertos.
 
 ---
 
@@ -84,6 +92,6 @@ estados inconsistentes y deja claro qué datos son de solo lectura.
 |--------|-------|-----------------------|
 | MVP | `screens/` + `presenters/` + `Models/` | Separar UI, coordinación y negocio |
 | Repository | `*Repository` en `Models/` | Aislar el acceso a ficheros |
-| Strategy + DI | `ProveedorAPI` | Desacoplar la fuente de precios |
-| Adapter | `YahooFinanceProveedor` | Traducir `yfinance`/pandas al dominio |
+| Strategy + DI | `ProveedorAPI`, `ProveedorExpertos` | Desacoplar las fuentes de datos externas |
+| Adapter | `YahooFinanceProveedor`, `YahooExpertosProveedor` | Traducir `yfinance`/pandas al dominio |
 | Value Object | `CotizacionHistorica`, `Transaccion` | Inmutabilidad y encapsulamiento |

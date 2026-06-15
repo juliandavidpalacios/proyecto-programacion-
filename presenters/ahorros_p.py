@@ -23,10 +23,9 @@ class AhorrosPresenter:
     def actualizar_interfaz(self):
         self.view.limpiar_tabla()
 
-        total_ahorrado = 0.0
-        aportado_mes = 0.0
         lineas = self.model.leer_lineas_ahorros()
         try:
+            # Renderizado de filas (de la más nueva a la más antigua).
             for linea in reversed(lineas):
                 linea = linea.strip()
                 if not linea:
@@ -38,12 +37,9 @@ class AhorrosPresenter:
                     signo = "+" if tipo == "Ingreso" else "-"
                     # Le pasamos a la vista datos YA formateados; ella solo los pinta.
                     self.view.agregar_fila_historial(tipo, cat, f"{signo} {cantidad:.2f} €")
-                    if tipo == "Ingreso":
-                        total_ahorrado += cantidad
-                        aportado_mes += cantidad
-                    else:
-                        total_ahorrado -= cantidad
 
+            # Los totales los calcula el MODELO con una CuentaBancaria de dominio.
+            total_ahorrado, aportado_mes = self.model.calcular_resumen(lineas)
             # Guardamos el total en el presentador (fuente de verdad para validar retiros).
             self.total_ahorrado = total_ahorrado
             self.view.actualizar_totales(f"{total_ahorrado:.2f} €", f"{aportado_mes:.2f} €")

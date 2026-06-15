@@ -138,7 +138,7 @@ class MainView(tk.Tk):
     # Método visual que dibuja e inserta los botones en el panel lateral
     def crear_menu_botones(self, color_btn):
         # Definimos tu arreglo de opciones originales para los botones
-        opciones = ["Home", "Ahorros", "Acciones", "Cuenta","Gastos"]
+        opciones = ["Home", "Ahorros", "Acciones", "Cuenta","Expertos"]
         # Limpiamos la lista de botones por seguridad
         self.botones_lista = []
         # Iteramos sobre los textos de las opciones
@@ -160,7 +160,7 @@ class MainView(tk.Tk):
         from screens.acciones import AccionesFrame
         from screens.cuenta import CuentaFrame
         from screens.invertir import InvertirView
-        from screens.gastos import GastosFrame
+        from screens.expertos import ExpertosFrame
 
         # Mapeamos cada Vista con su respectivo Modelo y Presentador
         # Esto le permite al bucle saber exactamente qué piezas conectar para cada sección
@@ -194,10 +194,10 @@ class MainView(tk.Tk):
                 "import_presenter": lambda: __import__("presenters.cuenta_p",
                                                        fromlist=["CuentaPresenter"]).CuentaPresenter
             },
-            "Gastos": {
-                "vista_clase": GastosFrame,
-                "import_modelo": lambda: __import__("Models.gastos_m", fromlist=["GastosModel"]).GastosModel,
-                "import_presenter": lambda: __import__("presenters.gastos_p", fromlist=["GastosPresenter"]).GastosPresenter
+            "Expertos": {
+                "vista_clase": ExpertosFrame,
+                "import_modelo": lambda: __import__("Models.expertos_m", fromlist=["ExpertosModel"]).ExpertosModel,
+                "import_presenter": lambda: __import__("presenters.expertos_p", fromlist=["ExpertosPresenter"]).ExpertosPresenter
             }
         }
 

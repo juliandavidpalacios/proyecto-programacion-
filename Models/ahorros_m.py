@@ -5,6 +5,7 @@ import os
 from domain.portafolio import Portafolio
 from domain.proveedor_api import ProveedorAPI
 from domain.yahoo_finance import YahooFinanceProveedor
+from domain.cuenta_bancaria import CuentaBancaria
 
 
 class AhorrosModel:
@@ -69,6 +70,31 @@ class AhorrosModel:
         # El dominio se encarga de consultar el proveedor y sumar el valor.
         portafolio.actualizar_precios()
         return portafolio.obtener_valor_total()
+
+    # Calcula el resumen de saldos reproduciendo los movimientos sobre una
+    # CuentaBancaria de dominio (que impide que el ahorro quede en negativo).
+    def calcular_resumen(self, lineas):
+        cuenta = CuentaBancaria()
+        aportado_mes = 0.0
+        for linea in lineas:
+            linea = linea.strip()
+            if not linea:
+                continue
+            partes = linea.split(",")
+            if len(partes) != 3:
+                continue
+            tipo, _categoria, cant_str = partes
+            try:
+                cantidad = float(cant_str)
+            except ValueError:
+                continue
+            if tipo == "Ingreso":
+                cuenta.depositar(cantidad)
+                aportado_mes += cantidad
+            else:
+                cuenta.retirar(cantidad)
+        # El total ahorrado es el saldo disponible de la cuenta de dominio.
+        return cuenta.saldo_disponible, aportado_mes
 
     # Lee las líneas del historial de ahorros almacenadas localmente.
     def leer_lineas_ahorros(self):
