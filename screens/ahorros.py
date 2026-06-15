@@ -1,7 +1,7 @@
 # Importamos la librería de interfaces gráficas nativa de Python
 import tkinter as tk
-# Importamos submódulos específicos para componentes avanzados y cuadros de diálogo
-from tkinter import ttk, messagebox
+# Importamos el submódulo ttk para componentes avanzados (Treeview, Combobox)
+from tkinter import ttk
 
 
 class AhorrosFrame(tk.Frame):
@@ -177,4 +177,46 @@ class AhorrosFrame(tk.Frame):
         if self.presenter:
             # Delega la responsabilidad de inicialización de datos hacia el objeto presentador
             self.presenter.inicializar_sesion()
+
+    # =================================================================
+    # MÉTODOS DE RENDERIZADO (la Vista solo pinta lo que el Presentador le ordena)
+    # =================================================================
+    def limpiar_tabla(self):
+        for item in self.tabla.get_children():
+            self.tabla.delete(item)
+
+    def agregar_fila_historial(self, tipo, categoria, texto_monto):
+        self.tabla.insert("", "end", values=(tipo, categoria, texto_monto))
+
+    def actualizar_totales(self, texto_total, texto_mes):
+        self.lbl_total.config(text=texto_total)
+        self.lbl_mes.config(text=texto_mes)
+
+    def mostrar_inversiones_cargando(self):
+        self.lbl_inversiones.config(text="Cargando...")
+
+    def actualizar_inversiones(self, texto):
+        self.lbl_inversiones.config(text=texto)
+
+    def refrescar(self):
+        # Fuerza a Tkinter a repintar antes de una operación de red bloqueante.
+        self.update_idletasks()
+
+    def obtener_cantidad(self):
+        return self.entry_cantidad.get()
+
+    def obtener_categoria(self):
+        return self.combo_categoria.get()
+
+    def limpiar_cantidad(self):
+        self.entry_cantidad.delete(0, tk.END)
+
+    # --- Cuadros de diálogo ---
+    def mostrar_error(self, titulo, mensaje):
+        from tkinter import messagebox
+        messagebox.showerror(titulo, mensaje)
+
+    def mostrar_exito(self, titulo, mensaje):
+        from tkinter import messagebox
+        messagebox.showinfo(titulo, mensaje)
 

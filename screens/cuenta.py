@@ -1,6 +1,4 @@
 import tkinter as tk # Importa la librería base de Tkinter para la creación de interfaces gráficas
-from tkinter import messagebox # Importa messagebox para desplegar diálogos emergentes informativos o de alerta
-import os # Importa la librería os para verificar rutas de archivos y directorios en el sistema
 
 class CuentaFrame(tk.Frame): # Define el componente de interfaz CuentaFrame derivando de la clase tk.Frame de Tkinter
     def __init__(self, parent, controller): # Método constructor inicial de la vista que recibe el componente contenedor y el controlador global
@@ -55,5 +53,50 @@ class CuentaFrame(tk.Frame): # Define el componente de interfaz CuentaFrame deri
         tk.Label(ventana_pass, text="Repetir Nueva Contraseña:", font=("Arial", 10), fg="#b3b3b3", bg="#121212").pack(anchor="w", padx=30, pady=(5,0)) # Añade la etiqueta explicativa de verificación obligatoria de la nueva clave de seguridad ingresada
         entry_repetir = tk.Entry(ventana_pass, font=("Arial", 11), bg="#1e1e1e", fg="white", insertbackground="white", bd=0, show="*", width=30) # Crea el último cuadro de entrada de texto enmascarado para realizar el cotejo final de las nuevas claves
         entry_repetir.pack(padx=30, pady=5) # Posiciona el componente entry aplicando márgenes para mantener la simetría gráfica de toda la ventana modal
-        btn_confirmar = tk.Button(ventana_pass, text="Confirmar Cambio", command=lambda: self.presenter.confirmar_cambio_password(entry_actual, entry_nueva, entry_repetir, ventana_pass), font=("Arial", 11, "bold"), bg=self.controller.color_btn, fg="white", bd=0, pady=8, cursor="hand2") # Instancia el botón de confirmación vinculando su evento clic a la rutina lógica del presentador mediante una función anónima lambda
+        btn_confirmar = tk.Button(ventana_pass, text="Confirmar Cambio", command=lambda: self._confirmar_password(ventana_pass, entry_actual, entry_nueva, entry_repetir), font=("Arial", 11, "bold"), bg=self.controller.color_btn, fg="white", bd=0, pady=8, cursor="hand2") # Instancia el botón de confirmación delegando la lógica al presentador mediante un manejador interno de la vista
         btn_confirmar.pack(fill="x", padx=30, pady=25) # Empaqueta el botón final expandiéndolo por completo horizontalmente con márgenes perimetrales holgados
+
+    # =================================================================
+    # MÉTODOS DE LA VISTA (poblar campos, leer formulario y mostrar diálogos)
+    # =================================================================
+    def poblar_campos(self, datos): # Recibe un diccionario del presentador y rellena las cajas de texto del formulario
+        mapeo = { # Traduce las claves canónicas del modelo a las claves de los widgets de esta vista
+            "nombre": "Nombre Completo:",
+            "dni": "DNI / NIE:",
+            "fecha": "Fecha de Nac.:",
+            "correo": "Correo:",
+            "telefono": "Teléfono:",
+        }
+        for clave_dato, clave_widget in mapeo.items(): # Recorre cada par de claves a poblar
+            entry = self.campos.get(clave_widget) # Localiza el widget de entrada correspondiente
+            if entry is not None: # Solo actúa si el widget existe
+                entry.delete(0, tk.END) # Limpia el contenido previo de la caja
+                entry.insert(0, datos.get(clave_dato, "")) # Inserta el valor recibido del presentador
+
+    def obtener_datos_formulario(self): # Lee las cajas de texto y devuelve un diccionario limpio para el presentador
+        return {
+            "nombre": self.campos["Nombre Completo:"].get().strip(),
+            "dni": self.campos["DNI / NIE:"].get().strip(),
+            "fecha": self.campos["Fecha de Nac.:"].get().strip(),
+            "correo": self.campos["Correo:"].get().strip(),
+            "telefono": self.campos["Teléfono:"].get().strip(),
+        }
+
+    def _confirmar_password(self, ventana_pass, entry_actual, entry_nueva, entry_repetir): # Manejador interno: lee los entries, consulta al presentador y muestra el resultado
+        from tkinter import messagebox # Importación local: la Vista es la única que conoce los popups
+        exito, titulo, mensaje = self.presenter.confirmar_cambio_password( # Delega la validación pasando STRINGS, no widgets
+            entry_actual.get(), entry_nueva.get(), entry_repetir.get()
+        )
+        if exito: # Si la operación fue válida según el presentador
+            messagebox.showinfo(titulo, mensaje, parent=ventana_pass) # Informa del éxito sobre la ventana modal
+            ventana_pass.destroy() # Cierra la ventana modal de cambio de contraseña
+        else: # Si hubo algún problema de validación
+            messagebox.showerror(titulo, mensaje, parent=ventana_pass) # Muestra el error sin cerrar el modal
+
+    def mostrar_error(self, titulo, mensaje): # Diálogo de error genérico solicitado por el presentador
+        from tkinter import messagebox
+        messagebox.showerror(titulo, mensaje)
+
+    def mostrar_exito(self, titulo, mensaje): # Diálogo informativo genérico solicitado por el presentador
+        from tkinter import messagebox
+        messagebox.showinfo(titulo, mensaje)

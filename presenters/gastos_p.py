@@ -1,6 +1,3 @@
-from tkinter import messagebox
-
-
 class GastosPresenter:
     def __init__(self, view, model):
         self.view = view
@@ -42,7 +39,7 @@ class GastosPresenter:
             if cantidad <= 0:
                 raise ValueError
         except ValueError:
-            messagebox.showerror("Error", "Por favor, introduce una cantidad numérica válida y mayor a 0.")
+            self.view.mostrar_error("Error", "Por favor, introduce una cantidad numérica válida y mayor a 0.")
             return
 
         # ⬇️ NUEVA LÓGICA DE CLASIFICACIÓN CORREGIDA ⬇️
@@ -65,11 +62,11 @@ class GastosPresenter:
         )
 
         if exito:
-            messagebox.showinfo("Éxito", mensaje)
+            self.view.mostrar_exito("Éxito", mensaje)
             self.view.limpiar_formulario()
             self.inicializar_sesion()
         else:
-            messagebox.showwarning("Advertencia", mensaje)
+            self.view.mostrar_advertencia("Advertencia", mensaje)
 
     def inicializar_sesion(self):
         ruta_usuario = self.view.controller.usuario_logueado

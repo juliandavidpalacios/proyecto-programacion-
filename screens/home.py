@@ -204,6 +204,45 @@ class HomeFrame(tk.Frame):
         # Redirigimos la ejecución de la carga de información hacia el presentador asignado
         self.presenter.cargar_datos_usuario()
 
+    # =================================================================
+    # MÉTODOS DE RENDERIZADO (la Vista solo pinta lo que el Presentador le ordena)
+    # =================================================================
+    def mostrar_fecha(self, texto):
+        self.lbl_fecha.config(text=texto)
+
+    def mostrar_saludo(self, texto):
+        self.lbl_saludo.config(text=texto)
+
+    def actualizar_resumen(self, texto_ahorro, texto_mes):
+        self.card_ahorro.config(text=texto_ahorro)
+        self.card_mes.config(text=texto_mes)
+
+    def actualizar_invertido(self, texto):
+        self.card_invertido.config(text=texto)
+
+    def actualizar_valor_portafolio(self, texto):
+        self.card_valor.config(text=texto)
+
+    def limpiar_portafolio(self):
+        self.limpiar_frame(self.frame_filas)
+
+    def pintar_activo(self, ticker, cantidad, precio, valor, pct, row):
+        self.fila_activo(self.frame_filas, ticker, cantidad, precio, valor, pct, row)
+
+    def mostrar_portafolio_vacio(self):
+        self.limpiar_frame(self.frame_filas)
+        self.lbl_sin_activos = tk.Label(
+            self.frame_filas,
+            text="Sin inversiones todavía.\nPulsa + Nueva Inversión para empezar.",
+            font=("Arial", 10), fg="#444444", bg="#121212", justify="center",
+        )
+        self.lbl_sin_activos.pack(expand=True, pady=20)
+
+    def confirmar_cierre_sesion(self):
+        """La Vista decide CÓMO confirmar (popup) y devuelve la decisión al Presentador."""
+        from tkinter import messagebox
+        return messagebox.askyesno("Cerrar sesión", "¿Estás seguro de que quieres cerrar sesión?")
+
     # Método visual para renderizar en pantalla la lista secuencial de transacciones provistas
     def poblar_movimientos(self, movs):
         # Vaciamos por completo el frame contenedor de transacciones previas

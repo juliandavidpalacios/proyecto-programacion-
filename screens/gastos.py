@@ -125,6 +125,19 @@ class GastosFrame(tk.Frame):
     def limpiar_formulario(self):
         self.entry_monto.delete(0, tk.END)
 
+    # --- Cuadros de diálogo (la Vista decide CÓMO se muestran los mensajes) ---
+    def mostrar_error(self, titulo, mensaje):
+        from tkinter import messagebox
+        messagebox.showerror(titulo, mensaje)
+
+    def mostrar_exito(self, titulo, mensaje):
+        from tkinter import messagebox
+        messagebox.showinfo(titulo, mensaje)
+
+    def mostrar_advertencia(self, titulo, mensaje):
+        from tkinter import messagebox
+        messagebox.showwarning(titulo, mensaje)
+
     def actualizar_interfaz_informe(self, totales, historial):
         # Actualizar Tarjetas Superiores
         self.lbl_fijos.config(text=f"{totales['Fijos']:.2f} €")

@@ -242,6 +242,32 @@ class MainView(tk.Tk):
             # Ejecutamos la recarga de datos para refrescar la vista
             frame.cargar_datos_usuario()
 
+    # Método que desmonta por completo el dashboard y vuelve a la pantalla de login.
+    # Antes esta lógica vivía (mezclada con messagebox) en el HomePresenter, lo que
+    # violaba MVP. Ahora la destrucción de widgets es responsabilidad de la Vista.
+    def cerrar_sesion_completo(self):
+        # Detenemos el refresco asíncrono de la pantalla de Acciones si está activo.
+        if "Acciones" in self.frames:
+            acciones_frame = self.frames["Acciones"]
+            if hasattr(acciones_frame, "detener_refresco"):
+                acciones_frame.detener_refresco()
+
+        # Destruimos todos los frames de la sesión y vaciamos el registro.
+        for frame in self.frames.values():
+            frame.destroy()
+        self.frames = {}
+
+        # Eliminamos el menú lateral y el contenedor principal del dashboard.
+        if hasattr(self, "menu_lateral") and self.menu_lateral:
+            self.menu_lateral.destroy()
+        if hasattr(self, "contenedor_principal") and self.contenedor_principal:
+            self.contenedor_principal.destroy()
+
+        # Reconstruimos un contenedor de autenticación limpio y mostramos el login.
+        self.contenedor_auth = tk.Frame(self, bg="#121212")
+        self.contenedor_auth.pack(fill="both", expand=True)
+        self.mostrar_login()
+
     # Método para aplicar dinámicamente un cambio estético general
     def aplicar_nuevos_colores(self, fondo, boton):
         # Verificamos si la interfaz ya cuenta con el menú lateral construido

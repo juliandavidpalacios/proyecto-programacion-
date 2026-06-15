@@ -1,5 +1,9 @@
 import os
 
+# El saldo de la "Cuenta" se modela con la entidad de dominio CuentaBancaria
+# (diagram.puml), que garantiza que el dinero nunca quede en negativo.
+from domain.cuenta_bancaria import CuentaBancaria
+
 
 class GastosModel:
     def __init__(self):
@@ -34,39 +38,39 @@ class GastosModel:
             print(f"[AVISO GASTOS] No se encontró el archivo físico en: {ruta_ahorros}")
             return 0.0
 
-        saldo_acumulado = 0.0
-
+        # Reconstruimos el saldo "reproduciendo" los movimientos sobre una
+        # CuentaBancaria de dominio: primero los ingresos, luego los retiros.
+        ingresos = 0.0
+        retiros = []
         try:
             with open(ruta_ahorros, "r", encoding="utf-8") as f:
                 for linea in f:
                     linea = linea.strip()
-
-                    # Ignoramos líneas vacías o registros de la interfaz gráfica
+                    # Ignoramos líneas vacías o registros de la interfaz gráfica.
                     if not linea or linea.startswith("GASTO_DETALLE|"):
                         continue
-
-                    # Separamos los campos por comas (Tipo,Categoría,Monto)
                     partes = linea.split(",")
                     if len(partes) < 3:
                         continue
-
-                    # Limpiamos espacios invisibles o molestos
                     tipo_movimiento = partes[0].strip()  # 'Ingreso' o 'Retiro'
-                    categoria = partes[1].strip()  # 'Cuenta'
-                    monto_str = partes[2].strip()  # El número en texto
+                    categoria = partes[1].strip()        # 'Cuenta'
+                    # Filtro estricto: solo movimientos de la categoría "Cuenta".
+                    if categoria != "Cuenta":
+                        continue
+                    try:
+                        monto = float(partes[2].strip())
+                    except ValueError:
+                        continue
+                    if tipo_movimiento == "Ingreso":
+                        ingresos += monto
+                    elif tipo_movimiento == "Retiro":
+                        retiros.append(monto)
 
-                    # Filtro estricto: Solo sumamos/restamos si pertenece a "Cuenta"
-                    if categoria == "Cuenta":
-                        try:
-                            monto = float(monto_str)
-                            if tipo_movimiento == "Ingreso":
-                                saldo_acumulado += monto
-                            elif tipo_movimiento == "Retiro":
-                                saldo_acumulado -= monto
-                        except ValueError:
-                            continue  # Si no se puede convertir a número, salta la línea
-
-            return saldo_acumulado
+            cuenta = CuentaBancaria()
+            cuenta.depositar(ingresos)
+            for monto in retiros:
+                cuenta.retirar(monto)
+            return cuenta.saldo_disponible
 
         except Exception as e:
             print(f"[ERROR GASTOS] Al calcular saldo en ahorros.txt: {e}")

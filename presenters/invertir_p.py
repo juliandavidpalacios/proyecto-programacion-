@@ -1,7 +1,3 @@
-import os
-from datetime import datetime
-
-
 class InvertirPresenter:
     def __init__(self, view, model):
         self.view = view
@@ -104,53 +100,27 @@ class InvertirPresenter:
         ticker = self.activo_seleccionado['ticker']
 
         try:
-            saldo_ahorros, archivo_ahorros = self.model.calcular_saldo_ahorros(usuario_logueado)
-            
-            if cantidad > saldo_ahorros:
-                self.view.mostrar_error(
-                    "Fondos Insuficientes",
-                    f"No dispones de capital suficiente para completar el trade.\n\n"
-                    f"💰 Saldo Actual: {saldo_ahorros:,.2f} €\n"
-                    f"🛒 Intento de compra: {cantidad:,.2f} €"
-                )
+            # Toda la regla de negocio y la persistencia las resuelve el MODELO.
+            # El presentador solo coordina y traduce el resultado a la vista.
+            exito, datos, error = self.model.registrar_compra(
+                usuario_logueado, self.categoria_seleccionada, ticker, cantidad
+            )
+
+            if not exito:
+                self.view.mostrar_error("Fondos Insuficientes", error)
                 return
 
-            precio_actual = float(self.model.obtener_precio_inicial(self.categoria_seleccionada, ticker))
-            acciones_adquiridas = cantidad / precio_actual
-
-            portafolio, archivo_portafolio = self.model.leer_portafolio_activos(usuario_logueado)
-            portafolio[ticker] = portafolio.get(ticker, 0.0) + acciones_adquiridas
-
-            with open(archivo_ahorros, "a", encoding="utf-8") as f:
-                f.write(f"Retiro,Inversión en {ticker},{cantidad:.2f}\n")
-
-            self.model.guardar_portafolio_activos(archivo_portafolio, portafolio)
-
-            # Historial general
-            folder = os.path.dirname(usuario_logueado)
-            archivo_historial = os.path.join(folder, "historial_inversiones.txt")
-            
-            # 1. Corregimos el formato de fecha al estándar internacional (YYYY-MM-DD)
-            ahora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            
-            with open(archivo_historial, "a", encoding="utf-8") as f:
-                # 2. Corregimos la estructura con los separadores "|" exactos que espera el modelo
-                f.write(f"[{ahora}] COMPRA | Activo: {ticker} | Dinero usado: {cantidad:.2f} € | Acciones obtenidas: +{acciones_adquiridas:.6f} | Precio de mercado: {precio_actual:.2f} €\n")
-            
-            
-            nuevo_saldo_simulado = saldo_ahorros - cantidad
             self.view.limpiar_campo_inversion()
-            
             self.view.mostrar_exito(
                 "¡Compra Realizada con Éxito!",
                 f"El importe ha sido retirado de tu hucha general de ahorros.\n\n"
-                f"🏢 Activo comprado: {ticker} ({self.activo_seleccionado['nombre']})\n"
-                f"🛒 Fracciones adquiridas: +{acciones_adquiridas:.6f}\n"
-                f"📉 Precio de mercado: {precio_actual:,.2f} €\n"
-                f"💸 Fondos retirados de Ahorros: -{cantidad:,.2f} €\n"
+                f"🏢 Activo comprado: {datos['ticker']} ({self.activo_seleccionado['nombre']})\n"
+                f"🛒 Fracciones adquiridas: +{datos['acciones_adquiridas']:.6f}\n"
+                f"📉 Precio de mercado: {datos['precio_actual']:,.2f} €\n"
+                f"💸 Fondos retirados de Ahorros: -{datos['cantidad']:,.2f} €\n"
                 f"----------------------------------------\n"
-                f"💰 Nuevo Saldo en Ahorros: {nuevo_saldo_simulado:,.2f} €\n"
-                f"📊 Inventario total de {ticker}: {portafolio[ticker]:.6f} unidades"
+                f"💰 Nuevo Saldo en Ahorros: {datos['nuevo_saldo']:,.2f} €\n"
+                f"📊 Inventario total de {datos['ticker']}: {datos['inventario_total']:.6f} unidades"
             )
 
         except Exception as e:

@@ -65,9 +65,10 @@ class MainPresenter:
         self.model.guardar_colores_tema(self.usuario_logueado, fondo, boton)
 
     def ejecutar_cerrar_sesion(self):
-        # Este método actúa como puente: recibe la orden del módulo home y se la pasa a la vista
+        # Resetea el estado de sesión y ordena a la vista desmontar el dashboard.
+        self.usuario_logueado = None
         if hasattr(self, "view") and self.view:
-            self.view.mostrar_login()
+            self.view.cerrar_sesion_completo()
 
 # ... (todo tu código anterior de main_p.py) ...
 

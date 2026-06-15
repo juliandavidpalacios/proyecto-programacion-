@@ -38,6 +38,33 @@ class CuentaModel: # Declara la clase del Modelo encargada exclusivamente de la 
             f.write(f"Color Fondo Menu:     {color_menu}\n") # Almacena la preferencia actual guardada para el tono cromático de fondo del menú del sistema
             f.write(f"Color Boton Menu:     {color_btn}\n") # Registra el valor hexadecimal correspondiente al color de los botones dentro de la configuración
             f.write("=======================================\n") # Escribe la línea estética final de clausura del bloque de datos estructurado
+    def obtener_datos_perfil(self, archivo_actual): # Lee el perfil y devuelve un diccionario limpio con los campos del cliente
+        datos = {"nombre": "", "dni": "", "fecha": "", "correo": "", "telefono": ""} # Estructura por defecto con claves canónicas independientes de la interfaz
+        lineas = self.cargar_lineas_perfil(archivo_actual) # Reutiliza el método existente para leer el archivo de perfil físico
+        if lineas is None: # Si el archivo no existe o falló la lectura
+            return datos # Devuelve el diccionario vacío por defecto sin reventar el flujo
+        mapeo = { # Tabla de traducción entre la etiqueta del archivo y la clave canónica del diccionario
+            "Nombre Completo:": "nombre",
+            "DNI / NIE:": "dni",
+            "Fecha de Nacimiento:": "fecha",
+            "Correo Electrónico:": "correo",
+            "Teléfono:": "telefono",
+        }
+        for linea in lineas: # Recorre cada renglón del archivo de perfil
+            partes = linea.split(":", 1) # Divide en clave y valor por el primer dos puntos
+            if len(partes) >= 2: # Solo procesa líneas con formato clave-valor válido
+                clave = (partes[0].strip() + ":") # Reconstruye la etiqueta con los dos puntos para buscarla en el mapeo
+                if clave in mapeo: # Si la etiqueta es uno de los campos que nos interesan
+                    datos[mapeo[clave]] = partes[1].strip() # Guarda el valor limpio bajo su clave canónica
+        return datos # Retorna el diccionario poblado con los datos del cliente
+    def renombrar_carpeta_usuario(self, archivo_actual, nombre): # Renombra físicamente la carpeta del usuario según su nuevo nombre completo
+        nuevo_nombre_carpeta = nombre.replace(" ", "_") # Convierte el nombre en un identificador de carpeta válido sustituyendo espacios
+        nueva_carpeta = os.path.join("informacion_cliente", nuevo_nombre_carpeta) # Compone la ruta destino dentro de la carpeta raíz de clientes
+        carpeta_actual = os.path.dirname(archivo_actual) # Obtiene la carpeta donde reside actualmente el perfil
+        if carpeta_actual == nueva_carpeta: # Si el nombre no cambió, no hay nada que renombrar
+            return archivo_actual # Devuelve la ruta original intacta
+        os.rename(carpeta_actual, nueva_carpeta) # Solicita al sistema operativo mover/renombrar la carpeta del cliente
+        return os.path.join(nueva_carpeta, "perfil.txt") # Devuelve la nueva ruta del archivo de perfil ya reubicado
     def actualizar_contrasena(self, archivo_actual, pass_nueva): # Método específico para reescribir el archivo actualizando únicamente la línea de la credencial
         with open(archivo_actual, "r", encoding="utf-8") as f: # Abre el archivo plano del usuario logueado en modo lectura segura con soporte UTF-8
             lineas = f.readlines() # Vuelca y almacena la lista completa de líneas originales dentro de una variable local de control
