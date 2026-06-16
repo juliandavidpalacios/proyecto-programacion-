@@ -368,23 +368,7 @@ flowchart TB
 
 ---
 
-## 7. 🤖 Instrucciones para el bot (Sourcery)
 
-Para que la review del PR sea **detallada, clara y metódica**:
-
-1. Sourcery publica por defecto el **PR Summary** + la **Reviewer's Guide** con
-   **diagramas Mermaid**. Si no aparecen, comenta en el PR:
-   - `@sourcery-ai guide` → regenera la guía del revisor (incluye diagramas).
-   - `@sourcery-ai review` → fuerza una nueva revisión completa.
-   - `@sourcery-ai summary` → regenera el resumen de cambios.
-2. **Qué se espera que diagrame**: las clases del paquete `domain/` con sus
-   **métodos** y relaciones (composición, dependencia y las dos jerarquías de
-   interfaz `ProveedorAPI`/`ProveedorExpertos`), tal como aparecen en este archivo.
-3. **Criterio de aceptación**: cada clase del dominio debe aparecer con sus métodos
-   públicos; las dos relaciones de herencia (`<|..`) deben estar presentes; debe
-   distinguirse el dominio de las capas MVP.
-
----
 
 ## 8. 📚 Referencias
 
