@@ -1,0 +1,16 @@
+# .sourcery.yaml — configuración del revisor automático Sourcery
+# Docs: https://docs.sourcery.ai/Code-Review/Configuration/
+#
+# La "Reviewer's Guide" y los diagramas Mermaid (incluidos los diagramas de
+# CLASE) están ACTIVADOS por defecto en Sourcery; este archivo solo excluye
+# ruido del análisis. Si algún ajuste de diagramas estuviera desactivado, se
+# reactiva en: Sourcery dashboard -> Settings -> Review (toggles de
+# "Mermaid Diagrams" y "Review Guide").
+#
+# Comandos útiles en el PR:
+#   @sourcery-ai guide     -> regenera la guía del revisor (incluye diagramas)
+#   @sourcery-ai review    -> fuerza una nueva revisión completa
+#   @sourcery-ai summary   -> regenera el resumen de cambios
+
+ignore:
+  - '.idea/**'
