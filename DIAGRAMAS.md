@@ -66,7 +66,6 @@ un vistazo.
 
 ```mermaid
 classDiagram
-    direction LR
 
     class Usuario
     class CuentaBancaria
@@ -122,7 +121,6 @@ Núcleo de identidad y dinero del usuario. Aquí vive toda la lógica de mover s
 
 ```mermaid
 classDiagram
-    direction LR
 
     class Usuario {
         -str id_usuario
@@ -185,7 +183,6 @@ para obtener precios sin acoplar el dominio a `yfinance`.
 
 ```mermaid
 classDiagram
-    direction LR
 
     class Portafolio {
         -Dict posiciones
@@ -277,7 +274,6 @@ BlackRock…). Repite el **mismo patrón** Strategy + Adapter del subsistema de 
 
 ```mermaid
 classDiagram
-    direction LR
 
     class InversorInstitucional {
         -str nombre
