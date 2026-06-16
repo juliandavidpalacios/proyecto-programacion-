@@ -49,8 +49,12 @@
 
 Las cifras `"1"` y `"*"` sobre las líneas indican la **multiplicidad** (uno, muchos).
 
-> En Python las propiedades de solo lectura (`@property`) se muestran como métodos
-> públicos sin parámetros; los atributos privados (`__x`) aparecen con visibilidad `-`.
+> **Convención de este documento:** cada clase muestra sus **atributos privados**
+> (`-`, en Python `__x`) y sus **métodos públicos de comportamiento** (`+`). Las
+> propiedades de solo lectura (`@property`) que solo exponen un atributo se tratan
+> como *getters* implícitos y se omiten para no saturar el diagrama; los métodos
+> privados (`_x`) también se omiten por claridad (criterio de Fowler: mostrar lo
+> esencial). Las relaciones entre objetos se expresan con flechas, no como atributos.
 
 ---
 
@@ -258,6 +262,11 @@ de `yfinance` a `float` y `CotizacionHistorica`), y en pruebas se puede inyectar
 proveedor simulado. La herencia `ProveedorAPI <|.. YahooFinanceProveedor` es la
 **única "subclase" real** del dominio de precios. `Posicion` calcula valor y
 rendimiento; `Accion` cachea historiales por `IntervaloTiempo`.
+
+> Precisión de tipos (se muestran como `Dict` en el diagrama para que Mermaid los
+> renderice de forma estable): en `Portafolio`, `posiciones` es
+> `Dict[str, Posicion]`; en `Accion`, `historial` es
+> `Dict[IntervaloTiempo, List[CotizacionHistorica]]`.
 
 ---
 
