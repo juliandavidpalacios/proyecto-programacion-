@@ -1,0 +1,185 @@
+@startuml
+skinparam classAttributeIconSize 0
+title Tracker Financiero - Arquitectura MVP + Modelo de Dominio
+
+' =====================================================================
+'  ENUMERACIONES
+' =====================================================================
+enum TipoTransaccion {
+  COMPRA
+  VENTA
+  DEPOSITO
+  RETIRO
+}
+
+enum IntervaloTiempo {
+  UN_DIA
+  UNA_SEMANA
+  UN_MES
+  UN_ANIO
+  CINCO_ANIOS
+}
+
+' =====================================================================
+'  DOMINIO (paquete domain/) - objetos de negocio puros
+' =====================================================================
+package "domain (Modelo de Negocio puro)" {
+
+  class Usuario {
+    -idUsuario: String
+    -nombre: String
+    -correo: String
+    -contrasena: String
+    +verificarCredenciales(correo, contrasena): bool
+    +registrarTransaccion(t: Transaccion)
+  }
+
+  class CuentaBancaria {
+    -saldoDisponible: Float
+    -saldoAhorros: Float
+    +depositar(monto: Float): bool
+    +retirar(monto: Float): bool
+    +transferirAAhorros(monto: Float): bool
+    +transferirADisponible(monto: Float): bool
+  }
+
+  class Portafolio {
+    -posiciones: Dict<String, Posicion>
+    +comprarAccion(simbolo, cantidad, precio): Posicion
+    +venderAccion(simbolo, cantidad)
+    +actualizarPrecios()
+    +obtenerValorTotal(): Float
+    +obtenerRendimientoTotal(): Float
+  }
+
+  class Transaccion {
+    -idTransaccion: String
+    -fechaHora: DateTime
+    -tipo: TipoTransaccion
+    -montoTotal: Float
+    -simboloAccion: String
+    -cantidadAcciones: Float
+    +generarRecibo(): String
+    +aLineaHistorial(): String
+  }
+
+  class Posicion {
+    -cantidad: Float
+    -precioCompraPromedio: Float
+    +agregarCantidad(cantidad, precio)
+    +reducirCantidad(cantidad)
+    +calcularValorActual(): Float
+    +calcularGananciaOPerdida(): Float
+    +calcularRendimientoPct(): Float
+  }
+
+  interface ProveedorAPI {
+    +obtenerPrecioActual(simbolo): Float
+    +obtenerSerieDeTiempo(simbolo, intervalo): List<CotizacionHistorica>
+  }
+
+  class YahooFinanceProveedor {
+    -_CRIPTOS: Set
+    -_MAPEO_TIEMPO: Dict
+    +obtenerPrecioActual(simbolo): Float
+    +obtenerSerieDeTiempo(simbolo, intervalo): List<CotizacionHistorica>
+  }
+
+  class Accion {
+    -simbolo: String
+    -nombreEmpresa: String
+    -precioActual: Float
+    -historial: Map<IntervaloTiempo, List<CotizacionHistorica>>
+    +actualizarPrecio(nuevoPrecio: Float)
+    +guardarHistorial(intervalo, cotizaciones)
+    +tieneHistorialGuardado(intervalo): bool
+    +obtenerHistorial(intervalo): List
+  }
+
+  class CotizacionHistorica {
+    -fechaHora: DateTime
+    -precioCierre: Float
+  }
+
+  ' --- Subsistema Expertos (compras institucionales) ---
+  class InversorInstitucional {
+    -nombre: String
+    -compras: List<CompraInstitucional>
+    +agregarCompra(c: CompraInstitucional)
+    +obtenerValorTotalComprado(): Float
+  }
+
+  class CompraInstitucional {
+    -inversor: String
+    -simbolo: String
+    -empresa: String
+    -acciones: Float
+    -valor: Float
+    -variacionPct: Float
+    -fechaReporte: String
+    +esCompra(): bool
+  }
+
+  interface ProveedorExpertos {
+    +obtenerComprasRecientes(simbolos): List<CompraInstitucional>
+  }
+
+  class YahooExpertosProveedor {
+    +obtenerComprasRecientes(simbolos): List<CompraInstitucional>
+  }
+}
+
+' --- Relaciones del dominio ---
+Usuario "1" *-- "1" CuentaBancaria : tiene >
+Usuario "1" *-- "1" Portafolio : tiene >
+Usuario "1" *-- "*" Transaccion : realiza >
+
+Portafolio "1" *-- "*" Posicion : contiene >
+Portafolio ..> ProveedorAPI : usa >
+
+Posicion "*" --> "1" Accion : hace referencia a >
+Accion "1" *-- "*" CotizacionHistorica : mantiene >
+
+YahooFinanceProveedor ..|> ProveedorAPI : implementa
+Transaccion ..> TipoTransaccion
+Accion ..> IntervaloTiempo
+
+InversorInstitucional "1" *-- "*" CompraInstitucional : agrupa >
+YahooExpertosProveedor ..|> ProveedorExpertos : implementa
+YahooExpertosProveedor ..> CompraInstitucional : crea
+
+' =====================================================================
+'  ARQUITECTURA MVP (cómo se usa el dominio)
+' =====================================================================
+package "Vista (screens/)" {
+  class MainView
+  class "*Frame / *View" as VistasHijas
+}
+
+package "Presentador (presenters/)" {
+  class MainPresenter
+  class "*Presenter" as Presentadores
+}
+
+package "Modelo (Models/ - Repository)" {
+  class "*Model" as Modelos
+  class UsuarioRepository
+  class RegistroRepository
+}
+
+' --- Relaciones MVP ---
+VistasHijas ..> Presentadores : delega eventos (sin lógica)
+Presentadores ..> VistasHijas : ordena renderizar (métodos limpios)
+Presentadores ..> Modelos : solicita datos / reglas
+Modelos ..> UsuarioRepository : usa
+UsuarioRepository ..> Usuario : crea
+Modelos ..> Portafolio : construye y consulta
+Modelos ..> CuentaBancaria : reproduce saldos
+Modelos ..> Transaccion : crea
+Modelos ..> YahooFinanceProveedor : inyecta como ProveedorAPI
+Modelos ..> YahooExpertosProveedor : inyecta como ProveedorExpertos
+
+MainView --> MainPresenter
+MainPresenter --> Modelos
+
+@enduml
